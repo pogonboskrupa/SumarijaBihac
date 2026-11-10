@@ -1,0 +1,631 @@
+        // ========== AUTH MODULE ==========
+        // Login, logout, showApp, auto-refresh, cross-tab sync
+
+        // Pri prijavi: ako se prijavljuje DRUGI korisnik od vlasnika keša,
+        // obriši sav cache_* (privatnost na dijeljenom uređaju). Isti korisnik
+        // zadržava keš — to omogućava pun offline rad i poslije odjave.
+        function _clearForeignCacheOnLogin(username) {
+            const owner = localStorage.getItem('sumarija_cache_owner');
+            const uname = (username || '').toLowerCase();
+            if (owner && owner.toLowerCase() !== uname) {
+                try {
+                    const cacheKeys = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (k && k.startsWith('cache_')) cacheKeys.push(k);
+                    }
+                    cacheKeys.forEach(k => localStorage.removeItem(k));
+                    localStorage.removeItem('sumarija_offline_auth');
+                    _clearForeignIdbData();
+                    console.log(`[LOGIN] Novi korisnik — obrisano ${cacheKeys.length} ključeva prethodnog vlasnika keša`);
+                } catch(e) { console.error('foreign cache clear:', e); }
+            }
+            localStorage.setItem('sumarija_cache_owner', username || '');
+        }
+
+        // Isto za IndexedDB: primke/otpreme (delta sync + veliki keš prikazi) i
+        // sync pokazivači bi inače ostali vidljivi sljedećem korisniku. Foto
+        // zapisi su već ključani po korisniku (mapa_radnika_foto_<user>) — ne diraju se.
+        function _clearForeignIdbData() {
+            const idb = window.IDBHelper;
+            if (!idb) return;
+            const S = idb.STORES;
+            Promise.all([
+                idb.clearStore(S.PRIMKA),
+                idb.clearStore(S.OTPREMA),
+                idb.setMeta('blob_cache_primke_sjeca', null),
+                idb.setMeta('blob_cache_otpreme_tab', null),
+                idb.setMeta('primka_lastRow', 0),
+                idb.setMeta('otprema_lastRow', 0)
+            ]).catch(e => console.error('foreign IDB clear:', e));
+        }
+
+        // Lokalni zapisi (šihtarica, tragovi, poligoni, pogled mape) su ranije, zbog
+        // window.currentUser === undefined, pisani pod korisnikom 'anon'. Prvi
+        // korisnik koji se prijavi na uređaju ih preuzima; 'anon' ključ se briše
+        // da ga ne naslijedi sljedeći korisnik.
+        function _migrateAnonStorage(username) {
+            if (!username) return;
+            ['mapa_radnika_poligoni_', 'mapa_radnika_tragovi_', 'mapa_radnika_view_',
+             'sihtarica_unosi_', 'sihtarica_godisnji_'].forEach(prefix => {
+                try {
+                    const anon = localStorage.getItem(prefix + 'anon');
+                    if (anon === null) return;
+                    if (localStorage.getItem(prefix + username) === null) {
+                        localStorage.setItem(prefix + username, anon);
+                    }
+                    localStorage.removeItem(prefix + 'anon');
+                } catch (e) { console.error('anon storage migration:', e); }
+            });
+        }
+
+        // Login form handler
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('error-msg');
+            const loginBtn = document.getElementById('login-btn');
+
+            errorMsg.classList.add('hidden');
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Prijavljivanje...';
+
+            try {
+                const response = await fetch(`${API_URL}?path=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
+                if (!response.ok) {
+                    throw new Error(`Server je vratio grešku (HTTP ${response.status}). Pokušajte ponovo za minutu.`);
+                }
+                let data;
+                try {
+                    data = await response.json();
+                } catch (_) {
+                    throw new Error('Server je vratio neispravan odgovor. Pokušajte ponovo za minutu.');
+                }
+
+                if (data.success) {
+                    currentUser = data;
+                    currentPassword = password;
+                    _clearForeignCacheOnLogin(data.username || username);
+                    localStorage.setItem('sumarija_user', JSON.stringify(data));
+                    localStorage.setItem('sumarija_pass', password);
+                    // Offline snapshot — preživljava odjavu, omogućava offline prijavu
+                    // ISTOG korisnika (briše ga tek prijava drugog korisnika)
+                    try {
+                        localStorage.setItem('sumarija_offline_auth', JSON.stringify({
+                            username: data.username || username, pass: password, user: data
+                        }));
+                    } catch(_) {}
+                    showApp();
+                    loadPoslovodjaRadilistaMapping(); // Dohvati poslovodja→radilista iz INFO sheeta
+                    loadOdjeli(); // Load odjeli list after manual login
+
+                    // Učitaj početni prikaz PA TEK ONDA preload ostale
+                    const initialLoad = loadData();
+
+                    // AUTO-PRELOAD: Čekaj da početni prikaz završi, pa tek onda preloaduj ostalo
+                    if (!preloadScheduled) {
+                        preloadScheduled = true;
+                        Promise.resolve(initialLoad).then(() => {
+                            console.log('[AUTO-PRELOAD] Initial view loaded, starting background preload...');
+                            return preloadAllViews(true);
+                        }).then(() => {
+                            console.log('[AUTO-PRELOAD] All views preloaded in background!');
+                            preloadScheduled = false;
+                        }).catch(err => {
+                            console.error('[AUTO-PRELOAD] Preload failed:', err);
+                            preloadScheduled = false;
+                        });
+                    }
+                } else {
+                    errorMsg.textContent = data.error || 'Greška pri prijavi';
+                    errorMsg.classList.remove('hidden');
+                }
+            } catch (error) {
+                // OFFLINE PRIJAVA — mreža nedostupna: ako se uneseni kredencijali
+                // poklapaju sa offline snapshotom zadnjeg korisnika (preživljava
+                // odjavu), uđi u aplikaciju sa zadnjim keširanim podacima
+                let offlineOk = false;
+                try {
+                    const snapRaw = localStorage.getItem('sumarija_offline_auth');
+                    if (snapRaw) {
+                        const snap = JSON.parse(snapRaw);
+                        if (snap && snap.pass === password &&
+                            (snap.username || '').toLowerCase() === username.toLowerCase() && snap.user) {
+                            currentUser = snap.user;
+                            currentPassword = password;
+                            localStorage.setItem('sumarija_user', JSON.stringify(snap.user));
+                            localStorage.setItem('sumarija_pass', password);
+                            offlineOk = true;
+                            showApp();
+                            if (typeof showWarning === 'function') {
+                                showWarning('Offline prijava', 'Nema mreže — prikazujem zadnje sačuvane podatke.', 6000);
+                            }
+                            loadPoslovodjaRadilistaMapping();
+                            loadOdjeli();
+                            loadData();
+                        }
+                    }
+                } catch(_) {}
+                if (!offlineOk) {
+                    errorMsg.textContent = navigator.onLine
+                        ? 'Greška u komunikaciji sa serverom: ' + error.message
+                        : 'Nema internet konekcije. Offline prijava je moguća samo za zadnjeg prijavljenog korisnika (s tačnom lozinkom).';
+                    errorMsg.classList.remove('hidden');
+                }
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Prijavi se';
+            }
+        });
+
+        // Prepoznaje ograničenu ulogu OPERATER(I) bez obzira:
+        //  - da li je u šifrarniku upisana u kolonu "tip" (D) ili "ime_prezime" (C),
+        //  - da li je upisana u jednini ("OPERATER") ili množini ("OPERATERI"),
+        //  - na velika/mala slova i razmake.
+        // Namjerno tolerantno: jedan pogrešan oblik u tabeli inače znači da
+        // korisnik tiho dobije PUN admin skup tabova (fallback `else` grana).
+        function _jeOperater(user) {
+            if (!user) return false;
+            var norm = function(v) { return String(v || '').trim().toLowerCase(); };
+            var jeste = function(v) { return v === 'operater' || v === 'operateri'; };
+            return jeste(norm(user.type)) || jeste(norm(user.fullName));
+        }
+
+        // Čitljiv naziv uloge. `user.type` je slobodan tekst iz kolone D tabele
+        // korisnika (handleLogin, authentication.gs) — obično bez dijakritike
+        // ("primac"), ali može biti i naziv radnog mjesta. Otud mapa poznatih
+        // vrijednosti uz fallback na sirovi tekst umjesto praznog polja.
+        var _ULOGA_NAZIVI = {
+            'primac': 'primač', 'otpremac': 'otpremač', 'operativa': 'operativa',
+            'operater': 'operater', 'operateri': 'operateri',
+            'poslovodja': 'poslovođa', 'poslovođa': 'poslovođa'
+        };
+        function _prikaziUloga(user) {
+            if (!user) return '';
+            if (user.role === 'admin') return 'Administrator';
+            var t = String(user.type || '').trim().toLowerCase();
+            return _ULOGA_NAZIVI[t] || user.type || '';
+        }
+        // Inicijali za krug ("Salkić Adnan" → "SA").
+        function _inicijali(fullName) {
+            var r = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+            if (!r.length) return '?';
+            if (r.length === 1) return r[0].charAt(0).toUpperCase();
+            return (r[0].charAt(0) + r[1].charAt(0)).toUpperCase();
+        }
+
+        function showApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            if (typeof setAppViewport === 'function') setAppViewport();
+            _migrateAnonStorage(currentUser && currentUser.username);
+
+            // Traži "persistent storage" — bez ovoga Android/Chrome smije tiho
+            // obrisati localStorage/IndexedDB (offline podaci) kad uređaju
+            // ponestane prostora, pogotovo poslije dužeg perioda neaktivnosti
+            // (npr. korisnik na terenu koji app ne otvara satima/danima).
+            // Instalirane PWA/TWA (APK) aplikacije obično dobiju "persisted"
+            // automatski, ali eksplicitan zahtjev je siguran fallback svuda.
+            if (navigator.storage && navigator.storage.persist) {
+                navigator.storage.persisted().then(already => {
+                    if (!already) {
+                        navigator.storage.persist().then(granted => {
+                            console.log(granted ? '[STORAGE] Persistent storage odobren — offline podaci zaštićeni od automatskog brisanja.' : '[STORAGE] Persistent storage NIJE odobren (browser politika).');
+                        }).catch(() => {});
+                    }
+                }).catch(() => {});
+            }
+            document.getElementById('user-name').textContent = currentUser.fullName;
+            document.getElementById('user-role').textContent = _prikaziUloga(currentUser);
+            var _avatarEl = document.getElementById('user-avatar');
+            if (_avatarEl) _avatarEl.textContent = _inicijali(currentUser.fullName);
+
+            // Initialize notification UI if module loaded
+            if (typeof initNotificationUI === 'function') initNotificationUI();
+
+            // Update sidebar user info
+            const sidebarUserName = document.getElementById('sidebar-user-name');
+            const sidebarUserRole = document.getElementById('sidebar-user-role');
+            if (sidebarUserName) sidebarUserName.textContent = currentUser.fullName;
+            if (sidebarUserRole) sidebarUserRole.textContent = _prikaziUloga(currentUser);
+
+            // Dinamicki kreiraj tab-ove na osnovu tipa korisnika
+            const tabsMenu = document.getElementById('tabs-menu'); // Sidebar nav
+            const tabsMenuMobile = document.getElementById('tabs-menu-mobile'); // Mobile horizontal tabs
+            let userType = String(currentUser.type || '').trim().toLowerCase();
+            // OPERATERI je u šifrarniku upisan u kolonu "ime_prezime" (C), a ne u
+            // "tip" (D) — backend `type` puni ISKLJUČIVO iz kolone D (vidi
+            // handleLogin u apps-script/authentication.gs), pa bi bez ove provjere
+            // takav korisnik pao u `else` granu i dobio PUN admin skup tabova.
+            if (_jeOperater(currentUser)) userType = 'operateri';
+
+            // Define tabs based on user type
+            let tabsConfig = [];
+
+            if (userType === 'primac') {
+                tabsConfig = [
+                    { id: 'primac-personal', icon: '👷', label: 'Pregled sječe', active: true },
+                    { id: 'izvjestaji-primac', icon: '📋', label: 'Izvještaji' },
+                    { id: 'primac-mapa', icon: '🗺️', label: 'Karta' },
+                    { id: 'primac-godisnji', icon: '📅', label: 'Godišnji prikaz' },
+                    { id: 'primac-odjeli', icon: '🏭', label: 'Prikaz po odjelima' },
+                    { id: 'sihtarica-primac', icon: '🗓️', label: 'Šihtarica' },
+                    { id: 'kubikator', icon: '📐', label: 'Kubikator' },
+                    { id: 'add-sjeca', icon: '➕', label: 'Dodaj sječu' },
+                    { id: 'my-sjece', icon: '📝', label: 'Moje sječe' }
+                ];
+            } else if (userType === 'otpremac') {
+                tabsConfig = [
+                    { id: 'otpremac-personal', icon: '🚛', label: 'Pregled otpreme', active: true },
+                    { id: 'izvjestaji-otpremac', icon: '📋', label: 'Izvještaji' },
+                    { id: 'otpremac-mapa', icon: '🗺️', label: 'Karta' },
+                    { id: 'otpremac-godisnji', icon: '📅', label: 'Godišnji prikaz' },
+                    { id: 'otpremac-odjeli', icon: '🏭', label: 'Prikaz po odjelima' },
+                    { id: 'sihtarica-otpremac', icon: '🗓️', label: 'Šihtarica' },
+                    { id: 'kubikator', icon: '📐', label: 'Kubikator' },
+                    { id: 'add-otprema', icon: '➕', label: 'Dodaj otpremu' },
+                    { id: 'my-otpreme', icon: '📝', label: 'Moje otpreme' }
+                ];
+            } else if (userType === 'operativa') {
+                tabsConfig = [
+                    { id: 'dashboard', icon: '🌲', label: 'Šumarija Krupa', active: true },
+                    { id: 'kupci', icon: '📦', label: 'Kupci' },
+                    { id: 'mjesecni-sortimenti', icon: '📅', label: 'Mjesečni pregled' },
+                    { id: 'izvjestaji', icon: '📋', label: 'Izvještaji' }
+                ];
+            } else if (userType === 'operateri') {
+                // Ograničena uloga — SAMO ova tri prikaza. Tabovi 'primaci'/'otpremaci'
+                // nose pune stranice SJEČA/OTPREMA sa svojim podmenijima, pa se za ovu
+                // ulogu podmeniji sakrivaju i otvara se odmah "po danima" prikaz
+                // (vidi "OPERATERI: sakrij" niže u ovoj funkciji).
+                tabsConfig = [
+                    { id: 'kupci', icon: '🏢', label: 'Prikaz po kupcima', active: true },
+                    { id: 'primaci', icon: '📅', label: 'Sječa po danima' },
+                    { id: 'otpremaci', icon: '📅', label: 'Otprema po danima' }
+                ];
+            } else if (userType === 'poslovođa' || userType === 'poslovodja') {
+                tabsConfig = [
+                    { id: 'poslovodja-sjeca', icon: '🪓', label: 'SJEČA', active: true },
+                    { id: 'poslovodja-otprema', icon: '🚛', label: 'OTPREMA' },
+                    { id: 'poslovodja-aktivni', icon: '🪓', label: 'Aktivni odjeli' },
+                    { id: 'poslovodja-stanje', icon: '📦', label: 'Stanje zaliha' },
+                    { id: 'poslovodja-mapa', icon: '🗺️', label: 'Karta' },
+                    { id: 'izvjestaji', icon: '📋', label: 'Izvještaji' },
+                    { id: 'poslovodja-pregled', icon: '📑', label: 'PREGLED' },
+                    { id: 'poslovodja-izvjestaj-odjeli', icon: '🏭', label: 'Izvještaj po odjelima' },
+                    { id: 'poslovodja-unosi', icon: '📝', label: 'Dodani unosi', hasBadge: true }
+                ];
+            } else if (userType === 'admin') {
+                tabsConfig = [
+                    { id: 'dashboard', icon: '🌲', label: 'Šumarija Krupa', active: true },
+                    { id: 'kupci', icon: '🏢', label: 'Prikaz po kupcima' },
+                    { id: 'stanje-zaliha', icon: '📦', label: 'Stanje Zaliha' },
+                    { id: 'mjesecni-sortimenti', icon: '📅', label: 'Sječa/otprema' },
+                    { id: 'primaci', icon: '👷', label: 'SJEČA' },
+                    { id: 'otpremaci', icon: '🚛', label: 'OTPREMA' },
+                    { id: 'izvjestaji', icon: '📋', label: 'Izvještaji' },
+                    { id: 'primaci-admin', icon: '🌲', label: 'Primači na šuma panju' },
+                    { id: 'godisnji-plan', icon: '📋', label: 'Godišnji plan' },
+                    { id: 'karta-odjela', icon: '🗺️', label: 'Mapa' },
+                    { id: 'pending-unosi', icon: '📋', label: 'Dodani unosi', hasBadge: true },
+                    { id: 'kubikator', icon: '📐', label: 'Kubikator' }
+                ];
+            } else {
+                // Neprepoznata uloga (pogrešan/prazan upis u koloni "tip" šifrarnika
+                // korisnika) — NIKAD tiho ne davati pun admin pristup. Prijavi
+                // grešku i odjavi umjesto da korisnik ostane na admin prikazu.
+                console.error('[AUTH] Neprepoznata uloga korisnika, odjavljujem:', currentUser && currentUser.type);
+                if (typeof showError === 'function') {
+                    showError('Nepoznata uloga korisnika', 'Kontaktirajte administratora da provjeri unos u šifrarniku korisnika.');
+                }
+                if (typeof _performLogout === 'function') _performLogout();
+                return;
+            }
+
+            // OPERATERI: sakrij CIJELI podmeni unutar SJEČA/OTPREMA — ta uloga
+            // ima samo "po danima" prikaz, pa podmeni sa jednim dugmetom nema
+            // svrhu. Podmeni je statičan HTML dijeljen sa svim ulogama (živi
+            // UNUTAR primaci-content/otpremaci-content, nije zaseban tab), pa se
+            // ograničenje radi sakrivanjem u DOM-u, ne filtriranjem tabsConfig-a.
+            // Naslovi stranica se mijenjaju da odgovaraju imenima tabova.
+            if (userType === 'operateri') {
+                ['#primaci-content', '#otpremaci-content'].forEach(function(sel) {
+                    var submenu = document.querySelector(sel + ' .submenu');
+                    if (submenu) submenu.classList.add('hidden');
+                });
+                var _naslovi = { '#primaci-content': '📅 Sječa po danima', '#otpremaci-content': '📅 Otprema po danima' };
+                Object.keys(_naslovi).forEach(function(sel) {
+                    var h = document.querySelector(sel + ' .page-header-left h1');
+                    if (h) h.textContent = _naslovi[sel];
+                });
+            }
+
+            // Generate sidebar tabs (desktop)
+            tabsMenu.innerHTML = tabsConfig.map(tab => `
+                <button class="tab${tab.active ? ' active' : ''}${tab.hasBadge ? ' notification-badge' : ''}" onclick="switchTab('${tab.id}')">
+                    <span class="tab-icon">${tab.icon}</span>
+                    <span class="tab-label">${tab.label}</span>
+                    ${tab.hasBadge ? '<span class="badge-count" id="pending-count-badge"></span>' : ''}
+                </button>
+            `).join('');
+
+            // Generate mobile tabs (horizontal)
+            if (tabsMenuMobile) {
+                tabsMenuMobile.innerHTML = tabsConfig.map(tab => `
+                    <button class="tab${tab.active ? ' active' : ''}${tab.hasBadge ? ' notification-badge' : ''}" onclick="switchTab('${tab.id}')">
+                        ${tab.icon} ${tab.label}
+                        ${tab.hasBadge ? '<span class="badge-count" id="pending-count-badge-mobile"></span>' : ''}
+                    </button>
+                `).join('');
+            }
+
+            // Postavi currentTab na prvi aktivni tab PRIJE loadData
+            const activeTab = tabsConfig.find(t => t.active);
+            if (activeTab) {
+                window.currentTab = activeTab.id;
+            }
+
+            // Initialize Delta Sync System
+            if (window.DataSync) {
+                DataSync.initSyncConfig(API_URL, currentUser.username, currentPassword);
+                DataSync.startSmartSync();
+                console.log('[APP] Delta Sync initialized and started');
+            }
+
+            // Start manifest checker after login
+            startManifestChecker();
+
+            // Poziv na instalaciju aplikacije (samo ako app NIJE instalirana) —
+            // sa odgodom da ne skoči preko ekrana dok se početni prikaz učitava.
+            setTimeout(function() {
+                if (typeof maybeShowInstallPrompt === 'function') maybeShowInstallPrompt();
+            }, 2500);
+
+            // Setup cross-tab synchronization
+            setupCrossTabSync();
+
+            // Setup auto-refresh listener for all panels
+            setupAutoRefreshListeners();
+
+            // Setup scheduled refresh for weekdays at 09:00
+            setupScheduledRefresh();
+        }
+
+        // Auto-refresh listeners - slusa "app-data-synced" event i osvjezava trenutni panel
+        function setupAutoRefreshListeners() {
+            // Registruj listener samo jednom po učitavanju stranice (sprječava
+            // gomilanje duplikata pri logout→ponovni login bez reloada)
+            if (window.__autoRefreshListenersInit) return;
+            window.__autoRefreshListenersInit = true;
+            window.addEventListener('app-data-synced', (event) => {
+                const { version, type, timestamp } = event.detail;
+                console.log(`[AUTO-REFRESH] Received "app-data-synced" event:`, event.detail);
+
+                if (type === 'index-sync' || type === 'stanje-odjela-sync') {
+                    console.log(`[AUTO-REFRESH] Event type "${type}" - preloadAllViews already called in trigger function`);
+                    return;
+                }
+
+                console.log(`[AUTO-REFRESH] Refreshing all views for event type: ${type}`);
+                preloadAllViews(true).then(() => {
+                    console.log('[AUTO-REFRESH] All views refreshed');
+                });
+            });
+
+            console.log('[AUTO-REFRESH] Auto-refresh listeners registered');
+        }
+
+        // Scheduled auto-refresh for Poslovodja and Radnici panels
+        // Runs daily at 09:00 on weekdays (Monday-Friday), when data entry ends
+        function setupScheduledRefresh() {
+            // Pokreni interval samo jednom (sprječava višestruke setInterval-e
+            // koji bi se gomilali pri ponovnom loginu u istoj sesiji)
+            if (window.__scheduledRefreshInit) return;
+            window.__scheduledRefreshInit = true;
+            const REFRESH_TIMES = ['09:00'];
+            let lastRefreshDate = null;
+
+            function checkAndRefresh() {
+                // Ne radi ništa ako je korisnik odjavljen (interval preživljava logout)
+                if (!currentUser) return;
+                const now = new Date();
+                const dayOfWeek = now.getDay();
+                const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                const currentDate = now.toDateString();
+
+                const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+
+                if (!isWeekday) {
+                    return;
+                }
+
+                const shouldRefresh = REFRESH_TIMES.includes(currentTime);
+
+                if (shouldRefresh && lastRefreshDate !== currentDate + '-' + currentTime) {
+                    console.log('[SCHEDULED REFRESH] Starting scheduled refresh at ' + currentTime);
+                    lastRefreshDate = currentDate + '-' + currentTime;
+
+                    showInfo('Automatsko ažuriranje', 'Pokretanje zakazanog ažuriranja podataka...');
+
+                    // forceRefresh=true — bez toga bi smart-TTL keš (svjež do sutra 6:30)
+                    // samo replay-ao keširane podatke i zakazano ažuriranje ne bi radilo ništa
+                    preloadAllViews(true, true).then(() => {
+                        console.log('[SCHEDULED REFRESH] Scheduled refresh completed at ' + currentTime);
+                        showSuccess('Ažuriranje završeno', 'Podaci su automatski osvježeni.');
+                    }).catch(err => {
+                        console.error('[SCHEDULED REFRESH] Scheduled refresh failed:', err);
+                        showError('Greška', 'Automatsko ažuriranje nije uspjelo.');
+                    });
+                }
+            }
+
+            setInterval(checkAndRefresh, 60 * 1000);
+            checkAndRefresh();
+
+            console.log('[SCHEDULED REFRESH] Scheduler initialized - will refresh at 09:00 on weekdays');
+        }
+
+        // Cross-tab synchronization - slusa promjene u localStorage izmedju tabova
+        function setupCrossTabSync() {
+            // Registruj storage listener samo jednom po učitavanju stranice
+            if (window.__crossTabSyncInit) return;
+            window.__crossTabSyncInit = true;
+            window.addEventListener('storage', (event) => {
+                if (event.key === 'app_data_version') {
+                    const newVersion = event.newValue;
+                    const oldVersion = event.oldValue;
+
+                    if (newVersion !== oldVersion) {
+                        console.log(`[CROSS-TAB SYNC] Data synced from another tab! Version: ${newVersion}`);
+
+                        window.APP_DATA_VERSION = newVersion;
+
+                        showInfo('Podaci osvježeni', 'Drugi tab je pokrenuo indeksiranje. Osvježavam podatke...');
+
+                        setTimeout(() => {
+                            if (!currentUser) return; // korisnik se u međuvremenu odjavio
+                            preloadAllViews(true).then(() => {
+                                console.log('[CROSS-TAB SYNC] All views refreshed after cross-tab sync');
+                                showSuccess('Podatke osvježeni', 'Prikazujem najnovije podatke.');
+                            }).catch(err => console.error('[CROSS-TAB SYNC] Refresh failed:', err));
+                        }, 1500);
+                    }
+                }
+            });
+
+            console.log('[CROSS-TAB SYNC] Cross-tab synchronization listener registered');
+        }
+
+        // Odjava — traži potvrdu u velikom modalu (verzija app-a se prikazuje
+        // trajno u meniju ispod dugmeta "Odjavi se", ne ovdje)
+        function logout() {
+            const dropdown = document.getElementById('user-menu-dropdown');
+            if (dropdown) dropdown.classList.remove('show');
+            if (typeof showConfirmModal === 'function') {
+                showConfirmModal(
+                    'Odjava',
+                    'Da li se želite odjaviti? Keširani podaci ostaju sačuvani za vašu sljedeću (i offline) prijavu.',
+                    _performLogout,
+                    { large: true, confirmText: '🚪 Odjavi se', danger: true }
+                );
+            } else {
+                _performLogout(); // fallback ako modal nije dostupan
+            }
+        }
+
+        function _performLogout() {
+            // Close user menu first
+            const dropdown = document.getElementById('user-menu-dropdown');
+            if (dropdown) {
+                dropdown.classList.remove('show');
+            }
+
+            // OFFLINE PODRŠKA: keš se NE briše pri odjavi — briše se tek kad se
+            // DRUGI korisnik prijavi (vidi _clearForeignCacheOnLogin). Tako isti
+            // korisnik zadrži pun offline pristup i poslije odjave, a na dijeljenom
+            // uređaju sljedeći korisnik pri prijavi automatski obriše tuđi keš.
+            // (Vlasnik keša: localStorage 'sumarija_cache_owner')
+
+            // Resetuj tab render-cache — switchTab bi inače prikazao DOM prethodnog
+            // korisnika ("instant cache" putanja gleda samo da li div ima djecu)
+            window._tabRenderTime = {};
+
+            // Log final cache stats before logout
+            try { logCacheStats(); } catch(e) { console.error('logout logCacheStats:', e); }
+
+            // Stop Delta Sync
+            try {
+                if (window.DataSync) {
+                    DataSync.stopSmartSync();
+                    DataSync.logSyncMetrics();
+                }
+            } catch(e) { console.error('logout DataSync:', e); }
+
+            // Stop manifest checker
+            try { stopManifestChecker(); } catch(e) {}
+
+            // Cleanup chart instances to prevent memory leaks
+            try { if (window.dashboardChart) { window.dashboardChart.destroy(); window.dashboardChart = null; } } catch(e) {}
+            try { if (typeof primacChart !== 'undefined' && primacChart) { primacChart.destroy(); primacChart = null; } } catch(e) {}
+            try { if (typeof otpremacChart !== 'undefined' && otpremacChart) { otpremacChart.destroy(); otpremacChart = null; } } catch(e) {}
+            try { if (typeof primacDailyChart !== 'undefined' && primacDailyChart) { primacDailyChart.destroy(); primacDailyChart = null; } } catch(e) {}
+            try { if (typeof otpremacDailyChart !== 'undefined' && otpremacDailyChart) { otpremacDailyChart.destroy(); otpremacDailyChart = null; } } catch(e) {}
+            try { if (typeof primacYearlyChart !== 'undefined' && primacYearlyChart) { primacYearlyChart.destroy(); primacYearlyChart = null; } } catch(e) {}
+            try { if (typeof otpremacYearlyChart !== 'undefined' && otpremacYearlyChart) { otpremacYearlyChart.destroy(); otpremacYearlyChart = null; } } catch(e) {}
+
+
+            currentUser = null;
+            currentPassword = null;
+            _poslovodjaRadilistaFromApi = null;
+            localStorage.removeItem('sumarija_user');
+            localStorage.removeItem('sumarija_pass');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('app-screen').classList.add('hidden');
+            if (typeof setLoginViewport === 'function') setLoginViewport();
+
+            // Hide all content panels (safe - won't crash if element missing)
+            var panelIds = [
+                'dashboard-content', 'primaci-content', 'otpremaci-content', 'kupci-content',
+                'primac-personal-content', 'primac-godisnji-content',
+                'otpremac-personal-content', 'otpremac-godisnji-content',
+                'primac-odjeli-content', 'otpremac-odjeli-content',
+                'radnik-mapa-content',
+                'add-sjeca-content', 'add-otprema-content',
+                'my-sjece-content', 'my-otpreme-content',
+                'edit-sjeca-content', 'edit-otprema-content',
+                'pending-unosi-content',
+                'poslovodja-stanje-content',
+                'poslovodja-aktivni-content',
+                'poslovodja-sjeca-content', 'poslovodja-otprema-content',
+                'poslovodja-pregled-content', 'poslovodja-izvjestaj-odjeli-content', 'poslovodja-unosi-content',
+                'izvjestaji-content', 'izvjestaji-primac-content', 'izvjestaji-otpremac-content',
+                'mjesecni-sortimenti-content', 'stanje-odjela-admin-content',
+                'dinamika-content', 'kubikator-content', 'stanje-zaliha-content',
+                'sihtarica-primac-content', 'sihtarica-otpremac-content',
+                'godisnji-plan-content'
+            ];
+            panelIds.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            // Puni ekran Kubikatora postavlja overflow:hidden na <body> — bez
+            // ovoga bi to ostalo aktivno i na login ekranu poslije odjave.
+            document.body.classList.remove('kubikator-fullscreen');
+
+            document.getElementById('loading-screen').classList.remove('hidden');
+        }
+
+        // Load initial data based on user type (OPTIMIZED - lazy loading)
+        function loadData() {
+            let userType = String(currentUser.type || '').trim().toLowerCase();
+            // OPERATERI je u šifrarniku upisan u kolonu "ime_prezime" (C), a ne u
+            // "tip" (D) — backend `type` puni ISKLJUČIVO iz kolone D (vidi
+            // handleLogin u apps-script/authentication.gs), pa bi bez ove provjere
+            // takav korisnik pao u `else` granu i dobio PUN admin skup tabova.
+            if (_jeOperater(currentUser)) userType = 'operateri';
+
+            // Show loading screen with progress
+            const loadingText = document.querySelector('.loading-text');
+            if (loadingText) {
+                loadingText.textContent = 'Učitavam početni prikaz...';
+            }
+
+            if (userType === 'primac') {
+                return loadPrimacPersonal();
+            } else if (userType === 'otpremac') {
+                return loadOtpremacPersonal();
+            } else if (userType === 'poslovođa' || userType === 'poslovodja') {
+                return loadPoslovodjaSjeca();
+            } else if (userType === 'operateri') {
+                return loadKupci();
+            } else if (userType === 'admin') {
+                return loadDashboard();
+            } else {
+                // Odbrana u dubinu — showApp() bi za neprepoznatu ulogu već trebao
+                // odjaviti korisnika prije nego se dođe dovde (vidi else granu tamo).
+                console.error('[AUTH] Neprepoznata uloga u loadData():', currentUser && currentUser.type);
+                return Promise.resolve();
+            }
+        }

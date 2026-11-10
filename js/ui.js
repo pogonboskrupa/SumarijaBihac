@@ -1,0 +1,846 @@
+        // ========== UI MODULE ==========
+        // Navigation (switchTab, sub-menus), filters, sorting, toggles
+
+        // Prati kada je svaki tab zadnji put renderovan
+        window._tabRenderTime = window._tabRenderTime || {};
+        function markTabRendered(tab) {
+            window._tabRenderTime[tab] = Date.now();
+        }
+
+        // Mapa tab → content div id — globalna jer je koristi i requestLoadingScreen
+        // u app.js (loading ekran se prikazuje samo ako aktivni tab nema sadržaja)
+        window.TAB_CONTENT_MAP = {
+                'dashboard': 'dashboard-content',
+                'primaci': 'primaci-content',
+                'otpremaci': 'otpremaci-content',
+                'kupci': 'kupci-content',
+                'primac-personal': 'primac-personal-content',
+                'primac-godisnji': 'primac-godisnji-content',
+                'otpremac-personal': 'otpremac-personal-content',
+                'otpremac-godisnji': 'otpremac-godisnji-content',
+                'primac-odjeli': 'primac-odjeli-content',
+                'otpremac-odjeli': 'otpremac-odjeli-content',
+                'my-sjece': 'my-sjece-content',
+                'my-otpreme': 'my-otpreme-content',
+                'pending-unosi': 'pending-unosi-content',
+                'mjesecni-sortimenti': 'mjesecni-sortimenti-content',
+                'dinamika': 'dinamika-content',
+                'poslovodja-stanje': 'poslovodja-stanje-content',
+                'poslovodja-aktivni': 'poslovodja-aktivni-content',
+                'poslovodja-sjeca': 'poslovodja-sjeca-content',
+                'poslovodja-otprema': 'poslovodja-otprema-content',
+                'poslovodja-pregled': 'poslovodja-pregled-content',
+                'poslovodja-izvjestaj-odjeli': 'poslovodja-izvjestaj-odjeli-content',
+                'poslovodja-unosi': 'poslovodja-unosi-content',
+                'stanje-zaliha': 'stanje-zaliha-content',
+                'primaci-admin': 'primaci-admin-content',
+                'izvjestaji': 'izvjestaji-content',
+                'izvjestaji-primac': 'izvjestaji-primac-content',
+                'izvjestaji-otpremac': 'izvjestaji-otpremac-content',
+                'primac-mapa': 'radnik-mapa-content',
+                'otpremac-mapa': 'radnik-mapa-content',
+                'poslovodja-mapa': 'radnik-mapa-content',
+                'sihtarica-primac': 'sihtarica-primac-content',
+                'sihtarica-otpremac': 'sihtarica-otpremac-content',
+                'kubikator': 'kubikator-content',
+                'godisnji-plan': 'godisnji-plan-content',
+                'karta-odjela': 'karta-odjela-content',
+        };
+
+        // Tiho osvježavanje aktivnog prikaza kad pozadinski zahtjev donese novije podatke od onih
+        // koji su prikazani iz keša (vidi STALE_WAIT_MS u app.js). Ne dira forme, mape, kubikator,
+        // šihtaricu niti prikaz u kojem korisnik trenutno kuca ili ima otvoren modal.
+        (function () {
+            const NE_OSVJEZAVAJ = /^(add-|edit-|my-|sihtarica|kubikator|karta-odjela|primac-mapa|otpremac-mapa|poslovodja-mapa)/;
+            let timer = null;
+            window.addEventListener('sumarija:cache-updated', () => {
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    const tab = window.currentTab;
+                    if (!tab || NE_OSVJEZAVAJ.test(tab) || document.hidden) return;
+                    const ae = document.activeElement;
+                    if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+                    if (document.querySelector('.modal-overlay.show, #oa-modal.open, #oa-modal.show')) return;
+                    const mm = document.getElementById('mapa-modal');
+                    if (mm && mm.style.display && mm.style.display !== 'none') return;
+                    if (window._tabRenderTime) window._tabRenderTime[tab] = 0;
+                    if (typeof switchTab === 'function') switchTab(tab);
+                }, 1500);
+            });
+        })();
+
+        // Switch between tabs
+        function switchTab(tab) {
+            // Prati aktivni tab za sprečavanje bleeding-a kod async operacija
+            window.currentTab = tab;
+
+            // Izađi iz punog ekrana Mape odjela (radnik) ako se prelazi na bilo
+            // koji drugi tab — sigurnosna mreža za slučaj da korisnik ode s mape
+            // mimo "Zatvori" dugmeta (npr. browser back). Postavljeno OVDJE, prije
+            // eventualnog ranog "return" ispod (svjež keš → instant prikaz), da se
+            // uvijek izvrši bez obzira na tu granu.
+            // Kubikator se takođe otvara preko cijelog ekrana i mijenja viewport
+            // (vidi js/kubikator.js) — SVI "exit" hookovi moraju proći PRIJE
+            // ijednog "enter" hooka. Obrnut redoslijed (mapa exit→enter, pa tek
+            // onda kubikator exit) bi npr. pri prelasku Kubikator→Karta prvo
+            // postavio viewport za mapu (enter), a ODMAH ZATIM ga poništio
+            // izlaskom iz kubikatora (exit) — poništio bi upravo postavljenu
+            // vrijednost.
+            if (typeof window.exitMapaRadnikaFullscreenIfActive === 'function') {
+                window.exitMapaRadnikaFullscreenIfActive(tab);
+            }
+            if (typeof window.exitKubikatorFullscreenIfActive === 'function') {
+                window.exitKubikatorFullscreenIfActive(tab);
+            }
+            if (typeof window.exitSihtaricaFullscreenIfActive === 'function') {
+                window.exitSihtaricaFullscreenIfActive(tab);
+            }
+            // I obrnuto — ako se ULAZI na Mapu odjela, osiguraj da je donja
+            // traka vidljiva ODMAH, prije eventualnog ranog "return" ispod
+            // (svjež keš → instant prikaz preskače granu koja poziva
+            // initMapaRadnika, pa bi traka inače ostala sakrivena od
+            // prethodnog izlaska s taba).
+            if (typeof window.enterMapaRadnikaFullscreenIfActive === 'function') {
+                window.enterMapaRadnikaFullscreenIfActive(tab);
+            }
+            // Kubikator: initKubikator rano izlazi kad je tab već renderovan, a
+            // grana ispod zna rano vratiti na svjež keš — zato je i "enter" hook
+            // ovdje, ne samo unutar initKubikator.
+            if (typeof window.enterKubikatorFullscreenIfActive === 'function') {
+                window.enterKubikatorFullscreenIfActive(tab);
+            }
+            if (typeof window.enterSihtaricaFullscreenIfActive === 'function') {
+                window.enterSihtaricaFullscreenIfActive(tab);
+            }
+
+            // Update tab buttons - set active on all matching tabs (sidebar + mobile)
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+            // Find and activate tabs that switch to this tab (works for both sidebar and mobile)
+            document.querySelectorAll(`.tab[onclick*="'${tab}'"]`).forEach(t => t.classList.add('active'));
+
+            // Izađi iz mapa-fokus moda PRIJE instant putanje ispod — ona zna rano
+            // vratiti (svjež keš), pa bi fokus (sakriveno zaglavlje/meni) ostao
+            // zalijepljen na tabu na koji se prelazi
+            if (tab !== 'karta-odjela' && document.body.classList.contains('mapa-fokus')) {
+                document.body.classList.remove('mapa-fokus');
+                const fb = document.getElementById('karta-fokus-btn');
+                if (fb) { fb.textContent = '⛶ Fokus'; fb.classList.remove('active'); }
+            }
+
+            // Provjeri može li se tab prikazati iz prethodno renderovanog DOM-a
+            // (preskoči fetch/render ako su podaci još svježi)
+            const ttl = (typeof getSmartCacheTTL === 'function') ? getSmartCacheTTL() : 60000;
+            const lastRender = window._tabRenderTime[tab];
+            const contentId = window.TAB_CONTENT_MAP[tab];
+            let bgRefreshEl = null; // sadržaj koji ostaje vidljiv tokom tihog refresha
+            if (contentId) {
+                const el = document.getElementById(contentId);
+                if (el && el.children.length > 0) {
+                    // INSTANT: Uvijek prikaži postojeći DOM odmah (bez loading screen-a)
+                    document.querySelectorAll('[id$="-content"]').forEach(c => c.classList.add('hidden'));
+                    el.classList.remove('hidden');
+                    document.getElementById('loading-screen').classList.add('hidden');
+                    // Ako je cache još svjež, ne treba ponovo učitavati
+                    if (lastRender && (Date.now() - lastRender) < ttl) {
+                        return;
+                    }
+                    // Cache je star - osvježi u pozadini bez loading screen-a
+                    // (korisnik već vidi podatke, refresh će ažurirati tiho)
+                    bgRefreshEl = el;
+                }
+            }
+
+            // Hide all content sections — osim onog koji se tiho osvježava u pozadini
+            // (inače bi podaci bljesnuli pa nestali do kraja refresha)
+            document.querySelectorAll('[id$="-content"]').forEach(c => {
+                if (c !== bgRefreshEl) c.classList.add('hidden');
+            });
+
+            // Load appropriate content
+            if (tab === 'dashboard') {
+                loadDashboard();
+            } else if (tab === 'primaci') {
+                loadPrimaci();
+                loadPrimaciDaily();
+            } else if (tab === 'otpremaci') {
+                loadOtpremaci();
+                loadOtremaciDaily();
+            } else if (tab === 'kupci') {
+                loadKupci();
+            } else if (tab === 'primac-personal') {
+                loadPrimacPersonal();
+            } else if (tab === 'primac-godisnji') {
+                loadPrimacGodisnji();
+                document.getElementById('primac-godisnji-content').classList.remove('hidden');
+            } else if (tab === 'otpremac-personal') {
+                loadOtpremacPersonal();
+            } else if (tab === 'otpremac-godisnji') {
+                loadOtpremacGodisnji();
+                document.getElementById('otpremac-godisnji-content').classList.remove('hidden');
+            } else if (tab === 'primac-odjeli') {
+                loadPrimacOdjeli();
+            } else if (tab === 'otpremac-odjeli') {
+                loadOtpremacOdjeli();
+            } else if (tab === 'primac-mapa') {
+                document.getElementById('radnik-mapa-content').classList.remove('hidden');
+                if (typeof initMapaRadnika === 'function') initMapaRadnika('primac');
+            } else if (tab === 'otpremac-mapa') {
+                document.getElementById('radnik-mapa-content').classList.remove('hidden');
+                if (typeof initMapaRadnika === 'function') initMapaRadnika('otpremac');
+            } else if (tab === 'poslovodja-mapa') {
+                document.getElementById('radnik-mapa-content').classList.remove('hidden');
+                if (typeof initMapaRadnika === 'function') initMapaRadnika('poslovodja');
+            } else if (tab === 'add-sjeca') {
+                showAddSjecaForm();
+            } else if (tab === 'add-otprema') {
+                showAddOtpremaForm();
+            } else if (tab === 'my-sjece') {
+                loadMySjece();
+            } else if (tab === 'my-otpreme') {
+                loadMyOtpreme();
+            } else if (tab === 'pending-unosi') {
+                loadPendingUnosi();
+            } else if (tab === 'mjesecni-sortimenti') {
+                loadMjesecniSortimenti();
+            } else if (tab === 'dinamika') {
+                loadDinamika();
+            } else if (tab === 'poslovodja-aktivni') {
+                document.getElementById('poslovodja-aktivni-content').classList.remove('hidden');
+                if (typeof loadPoslovodjaAktivni === 'function') loadPoslovodjaAktivni();
+            } else if (tab === 'poslovodja-stanje') {
+                loadPoslovodjaStanje();
+            } else if (tab === 'poslovodja-sjeca') {
+                loadPoslovodjaSjeca();
+            } else if (tab === 'poslovodja-otprema') {
+                loadPoslovodjaOtprema();
+            } else if (tab === 'poslovodja-pregled') {
+                loadPoslovodjaPregled();
+            } else if (tab === 'poslovodja-izvjestaj-odjeli') {
+                document.getElementById('poslovodja-izvjestaj-odjeli-content').classList.remove('hidden');
+                // Popuni "Vaša radilišta" baner (isti izvor kao ostali poslovođa tabovi)
+                var _radBaner = document.getElementById('poslovodja-radilista-list-odjeli');
+                if (_radBaner && typeof getPoslovodjaRadilista === 'function') {
+                    _radBaner.textContent = getPoslovodjaRadilista().join(', ');
+                }
+                // Default na tekući mjesec/godinu
+                var _cd = new Date();
+                var _yr = document.getElementById('poslovodja-odjeli-year');
+                var _mo = document.getElementById('poslovodja-odjeli-month');
+                if (_yr) _yr.value = _cd.getFullYear();
+                if (_mo) _mo.value = _cd.getMonth();
+                loadIzvjestajiPoOdjelima('poslovodja-odjeli', 'poslovodja-izvjestaj-odjeli');
+            } else if (tab === 'poslovodja-unosi') {
+                loadPoslovodjaUnosi();
+            } else if (tab === 'izvjestaji') {
+                // IZVJEŠTAJI - Sedmični i Mjesečni prikaz po odjelima
+                document.getElementById('izvjestaji-content').classList.remove('hidden');
+                if (typeof izvResetPeriod === 'function') izvResetPeriod(); // svaki ulazak u tab kreće od tekućeg mjeseca
+                switchIzvjestajiSubTab('sedmicni'); // Default: Sedmični izvještaj
+            } else if (tab === 'izvjestaji-primac') {
+                // Set default to current month/year
+                const currentDate = new Date();
+                document.getElementById('primac-sedmicni-year').value = currentDate.getFullYear();
+                document.getElementById('primac-sedmicni-month').value = currentDate.getMonth();
+                document.getElementById('primac-mjesecni-year').value = currentDate.getFullYear();
+                document.getElementById('primac-mjesecni-month').value = currentDate.getMonth();
+
+                document.getElementById('izvjestaji-primac-content').classList.remove('hidden');
+                switchPrimacIzvjestajiSubTab('sedmicni');
+            } else if (tab === 'izvjestaji-otpremac') {
+                // Set default to current month/year
+                const currentDate = new Date();
+                document.getElementById('otpremac-sedmicni-year').value = currentDate.getFullYear();
+                document.getElementById('otpremac-sedmicni-month').value = currentDate.getMonth();
+                document.getElementById('otpremac-mjesecni-year').value = currentDate.getFullYear();
+                document.getElementById('otpremac-mjesecni-month').value = currentDate.getMonth();
+
+                document.getElementById('izvjestaji-otpremac-content').classList.remove('hidden');
+                switchOtpremacIzvjestajiSubTab('sedmicni');
+            } else if (tab === 'sihtarica-primac') {
+                if (typeof loadSihtarica === 'function') loadSihtarica('primac');
+            } else if (tab === 'sihtarica-otpremac') {
+                if (typeof loadSihtarica === 'function') loadSihtarica('otpremac');
+            } else if (tab === 'kubikator') {
+                document.getElementById('kubikator-content').classList.remove('hidden');
+                if (typeof initKubikator === 'function') initKubikator();
+            } else if (tab === 'stanje-zaliha') {
+                loadStanjeZaliha();
+            } else if (tab === 'primaci-admin') {
+                loadPrimaciAdminTab();
+            } else if (tab === 'godisnji-plan') {
+                if (typeof loadGodisnjiPlan === 'function') loadGodisnjiPlan(false);
+            } else if (tab === 'karta-odjela') {
+                if (typeof initKartaOdjela === 'function') initKartaOdjela(false);
+                // Auto-aktiviraj fokus mode pri ulasku na mapu
+                document.body.classList.add('mapa-fokus');
+                const fb = document.getElementById('karta-fokus-btn');
+                if (fb) { fb.textContent = '✕ Fokus'; fb.classList.add('active'); }
+                if (typeof _map !== 'undefined' && _map) setTimeout(() => _map.invalidateSize(), 50);
+            }
+        }
+
+
+        // Switch between Stanje Odjela tabs (Pregled Stanja / Šuma Lager)
+        function switchStanjeOdjelaTab(view) {
+            // Update submenu buttons
+            const tabs = document.querySelectorAll('#stanje-odjela-admin-content .tabs-submenu .tab-sub');
+            tabs.forEach(t => t.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // If called programmatically, set the active tab based on view
+                tabs.forEach(t => {
+                    if ((view === 'pregled' && t.textContent.includes('Pregled')) ||
+                        (view === 'suma-lager' && t.textContent.includes('Lager'))) {
+                        t.classList.add('active');
+                    }
+                });
+            }
+
+            // Hide all stanje views
+            document.getElementById('stanje-pregled-view').classList.add('hidden');
+            document.getElementById('stanje-suma-lager-view').classList.add('hidden');
+
+            // Show selected view and load data
+            if (view === 'pregled') {
+                document.getElementById('stanje-pregled-view').classList.remove('hidden');
+                loadAdminStanjeOdjela();
+            } else if (view === 'suma-lager') {
+                document.getElementById('stanje-suma-lager-view').classList.remove('hidden');
+                loadSumaLager();
+            }
+        }
+
+        // Switch between primaci submenus
+        function switchPrimaciSubmenu(view) {
+            // Update submenu buttons
+            const submenuTabs = document.querySelectorAll('#primaci-content .submenu-tab');
+            submenuTabs.forEach(tab => tab.classList.remove('active'));
+            if (event && event.currentTarget) event.currentTarget.classList.add('active');
+
+            // Hide all submenu content
+            document.getElementById('primaci-monthly-view').classList.add('hidden');
+            document.getElementById('primaci-daily-view').classList.add('hidden');
+            document.getElementById('primaci-radilista-view').classList.add('hidden');
+            document.getElementById('primaci-izvodjaci-view').classList.add('hidden');
+            document.getElementById('primaci-timeline-view').classList.add('hidden');
+            document.getElementById('primaci-sortimenti-primac-view').classList.add('hidden');
+
+            // Show selected view
+            if (view === 'monthly') {
+                document.getElementById('primaci-monthly-view').classList.remove('hidden');
+                // Analiza radnika — lazy load samo prvi put
+                const analizaSel = document.getElementById('primaci-radnik-analiza-select');
+                if (analizaSel && !analizaSel.dataset.loaded) loadPrimaciRadnikAnaliza();
+            } else if (view === 'daily') {
+                document.getElementById('primaci-daily-view').classList.remove('hidden');
+                // Load daily data if not already loaded
+                if (!document.getElementById('primaci-daily-header').innerHTML) {
+                    loadPrimaciDaily();
+                }
+            } else if (view === 'radilista') {
+                document.getElementById('primaci-radilista-view').classList.remove('hidden');
+                // Load radilista data if not already loaded
+                if (!document.getElementById('primaci-radilista-header').innerHTML) {
+                    loadPrimaciByRadiliste();
+                }
+            } else if (view === 'izvodjaci') {
+                document.getElementById('primaci-izvodjaci-view').classList.remove('hidden');
+                // Load izvodjaci data if not already loaded
+                if (!document.getElementById('primaci-izvodjaci-header').innerHTML) {
+                    loadPrimaciByIzvodjac();
+                }
+            } else if (view === 'timeline') {
+                document.getElementById('primaci-timeline-view').classList.remove('hidden');
+                // Izbor izvođača puni loadPrimaciByIzvodjac; timeline se iscrtava poslije njega
+                if (typeof _primaciIzvodjaciData !== 'undefined' && _primaciIzvodjaciData) renderPrimaciIzvodjaciTimeline();
+                else loadPrimaciByIzvodjac();
+            } else if (view === 'sortimenti-by-primac') {
+                document.getElementById('primaci-sortimenti-primac-view').classList.remove('hidden');
+                // Load on first open with current month as default
+                const container = document.getElementById('primaci-sortimenti-primac-container');
+                if (!container.innerHTML) {
+                    const currentMonth = new Date().getMonth();
+                    document.getElementById('primaci-sortimenti-month-select').value = currentMonth;
+                    loadPrimaciSortimentiByPrimac(currentMonth);
+                }
+            }
+        }
+
+        // Switch between primaci-admin submenus (Admin: Primači na šuma panju)
+        function switchPrimaciAdminSubmenu(view) {
+            // Update submenu buttons
+            var submenuTabs = document.querySelectorAll('#primaci-admin-content .submenu-tab');
+            submenuTabs.forEach(function(tab) { tab.classList.remove('active'); });
+            if (event && event.target) event.target.classList.add('active');
+
+            // Hide all submenu content
+            document.getElementById('primaci-admin-pregled-view').classList.add('hidden');
+            document.getElementById('primaci-admin-godisnji-view').classList.add('hidden');
+            document.getElementById('primaci-admin-odjeli-view').classList.add('hidden');
+
+            var primacName = document.getElementById('primaci-admin-select').value;
+            if (!primacName) return;
+
+            if (view === 'pregled') {
+                document.getElementById('primaci-admin-pregled-view').classList.remove('hidden');
+                // Data already loaded from initial select
+            } else if (view === 'godisnji') {
+                document.getElementById('primaci-admin-godisnji-view').classList.remove('hidden');
+                // Load only if not already rendered
+                if (!document.getElementById('primaci-admin-godisnji-header').innerHTML) {
+                    loadPrimaciAdminGodisnji();
+                }
+            } else if (view === 'odjeli') {
+                document.getElementById('primaci-admin-odjeli-view').classList.remove('hidden');
+                // Load only if not already rendered
+                if (!document.getElementById('primaci-admin-odjeli-container').innerHTML) {
+                    loadPrimaciAdminOdjeli();
+                }
+            }
+        }
+
+        // Switch between otpremaci submenus
+        function switchOtremaciSubmenu(view) {
+            // Update submenu buttons
+            const submenuTabs = document.querySelectorAll('#otpremaci-content .submenu-tab');
+            submenuTabs.forEach(tab => tab.classList.remove('active'));
+            if (event && event.currentTarget) event.currentTarget.classList.add('active');
+
+            // Hide all submenu content
+            document.getElementById('otpremaci-monthly-view').classList.add('hidden');
+            document.getElementById('otpremaci-daily-view').classList.add('hidden');
+            document.getElementById('otpremaci-radilista-view').classList.add('hidden');
+            document.getElementById('otpremaci-po-kupcima-view').classList.add('hidden');
+            document.getElementById('otpremaci-sortimenti-otpremac-view').classList.add('hidden');
+
+            // Show selected view
+            if (view === 'monthly') {
+                document.getElementById('otpremaci-monthly-view').classList.remove('hidden');
+            } else if (view === 'daily') {
+                document.getElementById('otpremaci-daily-view').classList.remove('hidden');
+                // Load daily data if not already loaded
+                if (!document.getElementById('otpremaci-daily-header').innerHTML) {
+                    loadOtremaciDaily();
+                }
+            } else if (view === 'radilista') {
+                document.getElementById('otpremaci-radilista-view').classList.remove('hidden');
+                // Load radilista data if not already loaded
+                if (!document.getElementById('otpremaci-radilista-header').innerHTML) {
+                    loadOtremaciByRadiliste();
+                }
+            } else if (view === 'po-kupcima') {
+                document.getElementById('otpremaci-po-kupcima-view').classList.remove('hidden');
+                // Load kupci data if not already loaded
+                if (!document.getElementById('otpremaci-po-kupcima-header').innerHTML) {
+                    loadOtremaciPoKupcima();
+                }
+            } else if (view === 'sortimenti-by-otpremac') {
+                document.getElementById('otpremaci-sortimenti-otpremac-view').classList.remove('hidden');
+                const container = document.getElementById('otpremaci-sortimenti-otpremac-container');
+                if (!container.innerHTML) {
+                    const currentMonth = new Date().getMonth();
+                    document.getElementById('otpremaci-sortimenti-month-select').value = currentMonth;
+                    loadOtremaciSortimentiByOtpremac(currentMonth);
+                }
+            }
+        }
+
+        // Switch between kupci submenus
+        function switchKupciSubmenu(view) {
+            // Update submenu buttons
+            const submenuTabs = document.querySelectorAll('#kupci-content .submenu-tab');
+            submenuTabs.forEach(tab => tab.classList.remove('active'));
+            if (event && event.target) event.target.classList.add('active');
+
+            // Hide all submenu content
+            document.getElementById('kupci-godisnji-view').classList.add('hidden');
+            document.getElementById('kupci-mjesecni-view').classList.add('hidden');
+            document.getElementById('kupci-kvartalni-view').classList.add('hidden');
+            document.getElementById('kupci-statistika-view').classList.add('hidden');
+            document.getElementById('kupci-sortiment-view').classList.add('hidden');
+
+            // Show selected view
+            if (view === 'godisnji') {
+                document.getElementById('kupci-godisnji-view').classList.remove('hidden');
+            } else if (view === 'mjesecni') {
+                document.getElementById('kupci-mjesecni-view').classList.remove('hidden');
+            } else if (view === 'kvartalni') {
+                document.getElementById('kupci-kvartalni-view').classList.remove('hidden');
+                // Auto-select current quarter
+                const currentQuarter = Math.floor(new Date().getMonth() / 3) + 1;
+                document.getElementById('kupci-kvartalni-select').value = currentQuarter;
+                renderKupciKvartalniTable();
+            } else if (view === 'statistika') {
+                document.getElementById('kupci-statistika-view').classList.remove('hidden');
+                if (typeof initKupciStatistikaControls === 'function') initKupciStatistikaControls();
+            } else if (view === 'statistika-sortiment') {
+                document.getElementById('kupci-sortiment-view').classList.remove('hidden');
+                if (typeof initKupciSortimentControls === 'function') initKupciSortimentControls();
+            }
+        }
+
+        // UTILITY FUNCTIONS
+        // ========================================
+
+
+        // ---- IZBOR PRIKAZA (Desktop / Android) ----
+        // Nekad dva dugmeta u zaglavlju, od v2.65 stavke u "Meni" popupu — na
+        // njihovo mjesto u zaglavlju je došlo ime radnika. Id-evi elemenata su
+        // isti kao ranije (#desktop-view-btn / #android-view-btn) pa ih i ovaj
+        // kod i vraćanje stanja pri pokretanju (js/app.js) i dalje nalaze.
+        // Podrazumijevano (nijedan mod uključen) traka tabova je horizontalna.
+        function _oznaciPrikaz(id, aktivan, naslovUkljuci, naslovIskljuci) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.classList.toggle('active', aktivan);
+            el.title = aktivan ? naslovIskljuci : naslovUkljuci;
+        }
+
+        function toggleDesktopView() {
+            // Dva moda se međusobno isključuju
+            if (document.body.classList.contains('force-android-view')) {
+                document.body.classList.remove('force-android-view');
+                localStorage.setItem('android-view', 'disabled');
+                _oznaciPrikaz('android-view-btn', false, 'Prebaci na Android prikaz', 'Isključi Android prikaz');
+            }
+            document.body.classList.toggle('force-desktop-view');
+            var jeste = document.body.classList.contains('force-desktop-view');
+            localStorage.setItem('desktop-view', jeste ? 'enabled' : 'disabled');
+            // Bez ijednog uključenog moda vrati se podrazumijevani horizontalni raspored
+            document.body.classList.toggle('force-horizontal-tabs',
+                !jeste && !document.body.classList.contains('force-android-view'));
+            _oznaciPrikaz('desktop-view-btn', jeste, 'Prebaci na desktop prikaz', 'Prebaci na mobilni prikaz');
+            window.scrollTo(0, 0);
+        }
+
+        function toggleAndroidView() {
+            if (document.body.classList.contains('force-desktop-view')) {
+                document.body.classList.remove('force-desktop-view');
+                localStorage.setItem('desktop-view', 'disabled');
+                _oznaciPrikaz('desktop-view-btn', false, 'Prebaci na desktop prikaz', 'Prebaci na mobilni prikaz');
+            }
+            document.body.classList.toggle('force-android-view');
+            var jeste = document.body.classList.contains('force-android-view');
+            localStorage.setItem('android-view', jeste ? 'enabled' : 'disabled');
+            document.body.classList.toggle('force-horizontal-tabs',
+                !jeste && !document.body.classList.contains('force-desktop-view'));
+            _oznaciPrikaz('android-view-btn', jeste, 'Prebaci na Android prikaz', 'Isključi Android prikaz');
+            window.scrollTo(0, 0);
+        }
+
+        // Filter dashboard table
+        function filterDashboardTable() {
+            const input = document.getElementById('dashboard-search');
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById('dashboard-table');
+            const tr = table.getElementsByTagName('tr');
+
+            for (let i = 1; i < tr.length; i++) {
+                const td = tr[i].getElementsByTagName('td')[0];
+                if (td) {
+                    const txtValue = td.textContent || td.innerText;
+                    tr[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? '' : 'none';
+                }
+            }
+        }
+
+        // Filter odjeli table
+        function filterOdjeliTable() {
+            const input = document.getElementById('odjeli-search');
+            const filter = input ? input.value.toUpperCase().trim() : '';
+            const body = document.getElementById('odjeli-table-body');
+            if (!body) return;
+            const mode = (typeof dashOdjeliFilter !== 'undefined') ? dashOdjeliFilter : '';
+            const maxDana = mode === 'aktivni' ? 10 : mode === '60' ? 60 : Infinity;
+
+            let prikazano = 0, ukupno = 0;
+            Array.from(body.rows).forEach(tr => {
+                const td = tr.cells[0];
+                if (!td || tr.cells.length < 2) return; // poruke ("Nema podataka") ostaju
+                ukupno++;
+                const dana = parseInt(tr.dataset.dana, 10);
+                const uOpsegu = (isNaN(dana) ? 9999 : dana) <= maxDana;
+                const naziv = (td.textContent || '').toUpperCase();
+                const vidljiv = uOpsegu && naziv.indexOf(filter) > -1;
+                tr.style.display = vidljiv ? '' : 'none';
+                if (vidljiv) prikazano++;
+            });
+
+            document.querySelectorAll('#odjeli-chips .sz-chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.mode === mode);
+                c.setAttribute('aria-pressed', c.dataset.mode === mode ? 'true' : 'false');
+            });
+            const cnt = document.getElementById('odjeli-count');
+            if (cnt) cnt.textContent = ukupno ? `Prikazano: ${prikazano} od ${ukupno} odjela` : '';
+        }
+
+        // Filter primaci table
+        function filterPrimaciTable() {
+            const filter = document.getElementById('primaci-search').value.toUpperCase();
+            document.querySelectorAll('#primaci-body tr').forEach(tr => {
+                if (tr.classList.contains('sum-row')) return;
+                const td = tr.querySelector('td');
+                tr.style.display = td && td.textContent.toUpperCase().includes(filter) ? '' : 'none';
+            });
+        }
+
+        // Filter otpremaci table
+        function filterOtremaciTable() {
+            const filter = document.getElementById('otpremaci-search').value.toUpperCase();
+            document.querySelectorAll('#otpremaci-body tr').forEach(tr => {
+                if (tr.classList.contains('sum-row')) return;
+                const td = tr.querySelector('td');
+                tr.style.display = td && td.textContent.toUpperCase().includes(filter) ? '' : 'none';
+            });
+        }
+
+        // Filter primaci daily table
+        function filterPrimaciDailyTable() {
+            const filter = document.getElementById('primaci-daily-search').value.toUpperCase();
+            const rows = Array.from(document.querySelectorAll('#primaci-daily-body tr'));
+            // Dani su grupe: .ot-day (zaglavlje) → .ot-row* → .ot-daytotal; grupa je vidljiva ako ima red koji odgovara
+            let group = [];
+            const flush = () => {
+                if (!group.length) return;
+                const data = group.filter(r => r.classList.contains('ot-row'));
+                const anyMatch = data.some(r => r.textContent.toUpperCase().includes(filter));
+                group.forEach(r => {
+                    if (r.classList.contains('ot-row')) {
+                        r.style.display = !filter || r.textContent.toUpperCase().includes(filter) ? '' : 'none';
+                    } else {
+                        r.style.display = !filter || anyMatch ? '' : 'none';
+                    }
+                });
+                group = [];
+            };
+            rows.forEach(r => {
+                if (r.classList.contains('ot-day')) flush();
+                if (r.classList.contains('ot-day') || r.classList.contains('ot-row') || r.classList.contains('ot-daytotal')) {
+                    group.push(r);
+                } else {
+                    flush();
+                    r.style.display = '';
+                }
+            });
+            flush();
+        }
+
+        // Filter otpremaci daily table
+        function filterOtremaciDailyTable() {
+            const filter = document.getElementById('otpremaci-daily-search').value.toUpperCase();
+            const rows = Array.from(document.querySelectorAll('#otpremaci-daily-body tr'));
+            // Dani su grupe: .ot-day (zaglavlje) → .ot-row* → .ot-daytotal; grupa je vidljiva ako ima red koji odgovara
+            let group = [];
+            const flush = () => {
+                if (!group.length) return;
+                const data = group.filter(r => r.classList.contains('ot-row'));
+                const anyMatch = data.some(r => r.textContent.toUpperCase().includes(filter));
+                group.forEach(r => {
+                    if (r.classList.contains('ot-row')) {
+                        r.style.display = !filter || r.textContent.toUpperCase().includes(filter) ? '' : 'none';
+                    } else {
+                        r.style.display = !filter || anyMatch ? '' : 'none';
+                    }
+                });
+                group = [];
+            };
+            rows.forEach(r => {
+                if (r.classList.contains('ot-day')) flush();
+                if (r.classList.contains('ot-day') || r.classList.contains('ot-row') || r.classList.contains('ot-daytotal')) {
+                    group.push(r);
+                } else {
+                    flush();
+                    r.style.display = '';
+                }
+            });
+            flush();
+        }
+
+        // Filter primac personal table
+        function filterPrimacPersonalTable() {
+            const filter = document.getElementById('primac-personal-search').value.toUpperCase();
+            document.querySelectorAll('#primac-personal-body tr').forEach(tr => {
+                if (tr.classList.contains('sum-row') || tr.classList.contains('totals-row')) return;
+                const txt = Array.from(tr.cells).slice(0, 2).map(td => td.textContent).join(' ').toUpperCase();
+                tr.style.display = txt.includes(filter) ? '' : 'none';
+            });
+        }
+
+        // Filter otpremac personal table
+        function filterOtpremacPersonalTable() {
+            const filter = document.getElementById('otpremac-personal-search').value.toUpperCase();
+            document.querySelectorAll('#otpremac-personal-body tr').forEach(tr => {
+                if (tr.classList.contains('sum-row') || tr.classList.contains('totals-row')) return;
+                const txt = Array.from(tr.cells).slice(0, 3).map(td => td.textContent).join(' ').toUpperCase();
+                tr.style.display = txt.includes(filter) ? '' : 'none';
+            });
+        }
+
+        // Sort table
+        function sortTable(columnIndex, tableId) {
+            const table = document.getElementById(tableId);
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            // dd.mm.yyyy ili dd/mm/yyyy → sortabilan broj yyyymmdd
+            const DATE_RX = /^\s*(\d{1,2})[./](\d{1,2})[./](\d{4})\.?\s*$/;
+            const sortVal = (txt) => {
+                const dm = txt.match(DATE_RX);
+                if (dm) return parseInt(dm[3]) * 10000 + parseInt(dm[2]) * 100 + parseInt(dm[1]);
+                const n = parseFloat(txt.replace(/[^\d.-]/g, ''));
+                return isNaN(n) ? null : n;
+            };
+
+            const sortedRows = rows.sort((a, b) => {
+                const aValue = a.querySelectorAll('td')[columnIndex].innerText;
+                const bValue = b.querySelectorAll('td')[columnIndex].innerText;
+
+                const aNum = sortVal(aValue);
+                const bNum = sortVal(bValue);
+
+                // Konzistentan komparator: brojevi/datumi zajedno, ne-brojevi na kraj
+                if (aNum !== null && bNum !== null) return aNum - bNum;
+                if (aNum !== null) return -1;
+                if (bNum !== null) return 1;
+                return aValue.localeCompare(bValue, 'bs');
+            });
+
+            // Toggle sort direction
+            if (table.dataset.lastSort === columnIndex.toString()) {
+                sortedRows.reverse();
+                table.dataset.lastSort = '';
+            } else {
+                table.dataset.lastSort = columnIndex.toString();
+            }
+
+            // Re-append sorted rows
+            sortedRows.forEach(row => tbody.appendChild(row));
+        }
+
+
+        // ============================================
+        // MODAL FUNCTIONS
+        // ============================================
+
+        let confirmCallback = null;
+
+        function showConfirmModal(title, message, onConfirm, opts) {
+            opts = opts || {};
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').textContent = message;
+            confirmCallback = onConfirm;
+            const overlay = document.getElementById('confirm-modal');
+            // opts.large — istaknute akcije (npr. "Ažuriraj podatke") dobiju veći modal;
+            // klasa se svaki put eksplicitno postavlja/uklanja da se ne "zalijepi" na sljedeći poziv
+            overlay.classList.toggle('modal-overlay-lg', !!opts.large);
+            overlay.classList.add('show');
+
+            // opts.confirmText — label dugmeta (default "Obriši");
+            // opts.danger — crveno (btn-danger) vs plavo (btn-primary)
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            confirmBtn.textContent = opts.confirmText || 'Obriši';
+            const danger = opts.danger !== false; // default crveno (kompatibilno sa starim brisanjem)
+            confirmBtn.classList.toggle('btn-danger', danger);
+            confirmBtn.classList.toggle('btn-primary', !danger);
+
+            confirmBtn.onclick = function() {
+                if (confirmCallback) confirmCallback();
+                closeConfirmModal();
+            };
+        }
+
+        function closeConfirmModal() {
+            const overlay = document.getElementById('confirm-modal');
+            overlay.classList.remove('show');
+            overlay.classList.remove('modal-overlay-lg');
+            confirmCallback = null;
+        }
+
+        // Close modal on overlay click
+        document.getElementById('confirm-modal').addEventListener('click', function(e) {
+            if (e.target.id === 'confirm-modal') {
+                closeConfirmModal();
+            }
+        });
+
+        // ============================================
+        // FILTER FUNCTIONS
+        // ============================================
+
+        let unfilteredPendingData = [];
+
+        function applyFilters() {
+            const datumOd = document.getElementById('filter-datum-od')?.value;
+            const datumDo = document.getElementById('filter-datum-do')?.value;
+            const tip = document.getElementById('filter-tip')?.value;
+            const search = document.getElementById('filter-search')?.value.toLowerCase();
+
+            let filtered = [...unfilteredPendingData];
+
+            // Filter by date range
+            if (datumOd) {
+                filtered = filtered.filter(item => {
+                    const itemDate = new Date(item.timestampObj);
+                    return itemDate >= new Date(datumOd + 'T00:00:00');
+                });
+            }
+            if (datumDo) {
+                filtered = filtered.filter(item => {
+                    const itemDate = new Date(item.timestampObj);
+                    return itemDate <= new Date(datumDo + 'T23:59:59');
+                });
+            }
+
+            // Filter by type
+            if (tip) {
+                filtered = filtered.filter(item => item.tip === tip);
+            }
+
+            // Filter by search text
+            if (search) {
+                filtered = filtered.filter(item => {
+                    const searchText = (
+                        (item.odjel || '') + ' ' +
+                        (item.radnik || '') + ' ' +
+                        (item.kupac || '')
+                    ).toLowerCase();
+                    return searchText.includes(search);
+                });
+            }
+
+            // Re-render table with filtered data
+            renderPendingTable(filtered);
+        }
+
+        function clearFilters() {
+            const filterDatumOd = document.getElementById('filter-datum-od');
+            const filterDatumDo = document.getElementById('filter-datum-do');
+            const filterTip = document.getElementById('filter-tip');
+            const filterSearch = document.getElementById('filter-search');
+
+            if (filterDatumOd) filterDatumOd.value = '';
+            if (filterDatumDo) filterDatumDo.value = '';
+            if (filterTip) filterTip.value = '';
+            if (filterSearch) filterSearch.value = '';
+
+            renderPendingTable(unfilteredPendingData);
+        }
+
+        // Filter Primaci Admin table by odjel
+        function filterPrimaciAdminTable() {
+            var input = document.getElementById('primaci-admin-search');
+            var filter = input.value.toUpperCase();
+            var table = document.getElementById('primaci-admin-table');
+            var tr = table.getElementsByTagName('tr');
+            for (var i = 1; i < tr.length; i++) {
+                var td = tr[i].getElementsByTagName('td')[1]; // Odjel kolona
+                if (td) {
+                    var txtValue = td.textContent || td.innerText;
+                    tr[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? '' : 'none';
+                }
+            }
+        }
+
+

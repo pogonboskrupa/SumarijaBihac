@@ -1,0 +1,1378 @@
+// ========================================
+// js/godisnji-plan.js
+// Godišnji plan sječe 2026 — Pogon Bosanska Krupa
+// ========================================
+(function () {
+  'use strict';
+
+  // ---- PLAN DATA ----
+  // Podaci specifični za šumariju dolaze iz js/config-sumarija.js (jedini
+  // fajl koji se mijenja za drugu šumariju).
+  const _CFG = window.SUMARIJA_CONFIG || {};
+  const PLAN_ENTRIES = _CFG.PLAN_ENTRIES || [];
+
+  const GJ_LIST  = _CFG.GJ_LIST  || [];
+  const GJ_COLOR = _CFG.GJ_COLOR || {};
+  const GJ_BG    = _CFG.GJ_BG    || {};
+  const C = {
+    cTrupci:'#1e40af', celDuga:'#5b21b6', celCijepana:'#7c3aed', skart:'#9ca3af',
+    lTrupci:'#15803d', ogrDugi:'#92400e', ogrCijepani:'#b45309', gule:'#d97706',
+  };
+  const PLAN_YEAR = _CFG.PLAN_YEAR || new Date().getFullYear();
+
+  // ---- STATE ----
+  let _rows    = [];
+  let _rawPrimke = [];
+  let _loaded  = false;
+  let _loading = false;
+  let _activeTab  = 'grupe';
+  let _gjFilter   = 'sve';
+  let _stFilter   = 'sve';
+  let _izvFilter  = 'sve';
+  let _search     = '';
+  let _sort = {
+    grupe:     { col:'odjel', asc:true },
+    sortimenti:{ col:'stepen', asc:false },
+    pregled:   { col:'odjel', asc:true },
+    projekat:  { col:'odjel', asc:true },
+  };
+
+  // ---- HELPERS ----
+  function normKey(s) {
+    return String(s||'').trim().toUpperCase()
+      .replace(/Č/g,'C').replace(/Ć/g,'C')
+      .replace(/Š/g,'S').replace(/Ž/g,'Z').replace(/Đ/g,'DJ')
+      .replace(/P\s*$/, '').trim();
+  }
+
+  function fmt(n) {
+    if (n == null || isNaN(n)) return '—';
+    const v = Math.round(n);
+    if (v === 0) return '—';
+    return v.toLocaleString('de-DE');
+  }
+
+  function fmtN(n) {
+    if (n == null || isNaN(n)) return '0';
+    return Math.round(n).toLocaleString('de-DE');
+  }
+
+  function deriveStatus(pct) {
+    return pct >= 95 ? 'posjeceno' : pct > 5 ? 'u-sjeci' : 'planirano';
+  }
+
+  function getOvr(gj, odjel) { return localStorage.getItem('gp|'+gj+'|'+odjel) || 'auto'; }
+
+  function dzgoAct(a) { return (a.celDuga||0)+(a.celCijepana||0)+(a.skart||0); }
+  function cijAct(a)  { return (a.ogrDugi||0)+(a.ogrCijepani||0)+(a.gule||0); }
+
+  function formatDay(datumStr) {
+    const p = datumStr.split('.');
+    if (p.length < 3) return datumStr;
+    const d = new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+    const days = ['Ned','Pon','Uto','Sri','Čet','Pet','Sub'];
+    return datumStr + ' (' + (days[d.getDay()]||'') + ')';
+  }
+
+  // ---- UI COMPONENTS ----
+  function realizacijaBadge(pct) {
+    if (pct == null || isNaN(pct)) return '<span style="color:#6b7280;background:#f3f4f6;padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;">—</span>';
+    const p = parseFloat(pct.toFixed(1));
+    let col, bg;
+    if (p >= 90)     { col='#166534'; bg='#dcfce7'; }
+    else if (p >= 60){ col='#92400e'; bg='#fef3c7'; }
+    else if (p > 0)  { col='#991b1b'; bg='#fee2e2'; }
+    else             { col='#6b7280'; bg='#f3f4f6'; return `<span style="color:${col};background:${bg};padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;">—</span>`; }
+    return `<span style="color:${col};background:${bg};padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;">${p.toFixed(1)}%</span>`;
+  }
+
+  function statusBadge(s) {
+    const m = {
+      posjeceno: {bg:'#dcfce7', col:'#166534', lbl:'Posječeno'},
+      'u-sjeci': {bg:'#fef3c7', col:'#92400e', lbl:'U sječi'},
+      planirano: {bg:'#f3f4f6', col:'#6b7280', lbl:'Planirano'},
+    };
+    const c = m[s]||m.planirano;
+    return `<span style="background:${c.bg};color:${c.col};padding:2px 7px;border-radius:99px;font-size:11px;font-weight:600;">${c.lbl}</span>`;
+  }
+
+  function statusSelectHtml(gj, odjel, ovr) {
+    const eg = gj.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const eo = odjel.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const opts = [['auto','Auto'],['posjeceno','Posječeno'],['u-sjeci','U sječi'],['planirano','Planirano']];
+    return `<select style="font-size:11px;padding:2px 4px;border:1px solid #d1d5db;border-radius:4px;background:white;cursor:pointer;margin-left:4px;" onchange="gpSetOverride('${eg}','${eo}',this.value)">${opts.map(([v,l])=>`<option value="${v}"${ovr===v?' selected':''}>${l}</option>`).join('')}</select>`;
+  }
+
+  function bar2(pct, color) {
+    const w = Math.min(100, Math.round(pct||0));
+    const bc = (pct||0) > 100 ? '#dc2626' : (color||'#059669');
+    return `<div style="height:5px;background:#e5e7eb;border-radius:3px;width:56px;display:inline-block;vertical-align:middle;"><div style="height:100%;width:${w}%;background:${bc};border-radius:3px;"></div></div>`;
+  }
+
+  function koefColor(k) { return k>=85?'#166534':k>=75?'#92400e':'#991b1b'; }
+
+  function gjBadge(gj) {
+    return `<span style="background:${GJ_BG[gj]};color:${GJ_COLOR[gj]};padding:2px 7px;border-radius:99px;font-size:11px;font-weight:700;">${gj}</span>`;
+  }
+
+  // Styled odjel number chip — optional display overrides the label
+  function odjelLink(gj, odjel, display) {
+    const eg = gj.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const eo = odjel.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const label = display !== undefined ? display : odjel;
+    const isSluc = gj === 'Slučajni užici';
+    const bg = isSluc ? '#f5f3ff' : '#eff6ff';
+    const col = isSluc ? '#7c3aed' : '#1d4ed8';
+    const border = isSluc ? '#ddd6fe' : '#bfdbfe';
+    const hoverBg = isSluc ? '#ede9fe' : '#dbeafe';
+    const hoverBorder = isSluc ? '#c4b5fd' : '#93c5fd';
+    return `<span onclick="gpOpenOdjelModal('${eg}','${eo}')" style="cursor:pointer;display:inline-block;font-family:'Roboto Mono',monospace;font-weight:700;font-size:12px;background:${bg};color:${col};padding:3px 9px;border-radius:5px;border:1px solid ${border};min-width:28px;text-align:center;letter-spacing:0.3px;" onmouseover="this.style.background='${hoverBg}';this.style.borderColor='${hoverBorder}'" onmouseout="this.style.background='${bg}';this.style.borderColor='${border}'">${label}</span>`;
+  }
+
+  // Strip GJ prefix from a full odjel string (for slučajni display)
+  function shortOdjel(fullOdjel) {
+    for (const gj of GJ_LIST) {
+      if (fullOdjel.toLowerCase().startsWith(gj.toLowerCase() + ' ')) {
+        return fullOdjel.substring(gj.length + 1).trim();
+      }
+    }
+    return fullOdjel;
+  }
+
+  // GJ section header row
+  function gjHeaderRow(gj, cols) {
+    const col = GJ_COLOR[gj];
+    return `<tr style="background:linear-gradient(90deg,${col}1c 0%,${col}09 55%,transparent 100%);">
+      <td colspan="${cols}" style="border-left:4px solid ${col};padding:9px 14px;">
+        <div style="display:inline-flex;align-items:center;gap:8px;">
+          <span style="display:inline-block;width:7px;height:7px;background:${col};border-radius:2px;flex-shrink:0;"></span>
+          <span style="font-size:12px;font-weight:800;color:${col};text-transform:uppercase;letter-spacing:0.5px;">${gj}</span>
+        </div>
+      </td>
+    </tr>`;
+  }
+
+  // Subtotal row wrapper style
+  function subTotalStyle(gj) {
+    const col = GJ_COLOR[gj];
+    return `background:${GJ_BG[gj]};border-top:2px solid ${col}50;font-weight:700;font-size:11px;`;
+  }
+
+  // ---- AGGREGATION ----
+  function sumRows(rs) {
+    const s  = k => rs.reduce((acc,r)=>acc+(r[k]||0),0);
+    const sa = k => rs.reduce((acc,r)=>acc+(r.actual[k]||0),0);
+    const planCT=s('cTrupci'), actCT=sa('cTrupci');
+    const planDz=s('dzgo'),    celDuga=sa('celDuga'), celCij=sa('celCijepana'), skart=sa('skart');
+    const planLT=s('lTrupci'), actLT=sa('lTrupci');
+    const planCij=s('cijepano'), ogrDugi=sa('ogrDugi'), ogrCij=sa('ogrCijepani'), gule=sa('gule');
+    const bruto=s('bruto'), neto=s('neto'), ukupno=sa('ukupno');
+    return {
+      planCT, actCT, pctCT: planCT>0?actCT/planCT*100:0,
+      planDz, celDuga, celCij, skart, pctDz: planDz>0?(celDuga+celCij+skart)/planDz*100:0,
+      planLT, actLT, pctLT: planLT>0?actLT/planLT*100:0,
+      planCij, ogrDugi, ogrCij, gule, pctCij: planCij>0?(ogrDugi+ogrCij+gule)/planCij*100:0,
+      bruto, neto, ukupno, stepen: neto>0?ukupno/neto*100:0,
+    };
+  }
+
+  // ---- DATA PROCESSING ----
+  function buildRows(primke) {
+    return PLAN_ENTRIES.map(entry => {
+      const planKey = normKey(entry.gj+' '+entry.odjel);
+      const actual = { cTrupci:0, celDuga:0, celCijepana:0, skart:0, lTrupci:0, ogrDugi:0, ogrCijepani:0, gule:0, ukupno:0 };
+      const izvSet = new Set();
+      primke.filter(p => normKey(p.odjel)===planKey).forEach(p => {
+        if (p.izvodjac) izvSet.add(String(p.izvodjac).trim());
+        switch(p.sortiment){
+          case 'TRUPCI Č':    actual.cTrupci    += p.kolicina; break;
+          case 'CEL.DUGA':    actual.celDuga    += p.kolicina; break;
+          case 'CEL.CIJEPANA':actual.celCijepana+= p.kolicina; break;
+          case 'ŠKART':       actual.skart      += p.kolicina; break;
+          case 'TRUPCI L':    actual.lTrupci    += p.kolicina; break;
+          case 'OGR.DUGI':    actual.ogrDugi    += p.kolicina; break;
+          case 'OGR.CIJEPANI':actual.ogrCijepani+= p.kolicina; break;
+          case 'GULE':        actual.gule       += p.kolicina; break;
+        }
+      });
+      actual.ukupno = actual.cTrupci+actual.celDuga+actual.celCijepana+actual.skart+actual.lTrupci+actual.ogrDugi+actual.ogrCijepani+actual.gule;
+      const stepen = entry.neto>0 ? actual.ukupno/entry.neto*100 : 0;
+      const koef   = entry.bruto>0 ? entry.neto/entry.bruto*100 : 0;
+      const ovr    = getOvr(entry.gj, entry.odjel);
+      const status = ovr==='auto' ? deriveStatus(stepen) : ovr;
+      return { ...entry, actual, stepen, koef, status, override:ovr, izvodjaci:[...izvSet] };
+    });
+  }
+
+  // Odjeli čiji naziv sadrži bilo koji od ovih pojmova idu u "Slučajni užici"
+  // bez obzira da li se poklapaju s planiranim odjelom.
+  const SLUCAJNI_KEYWORDS = ['ZAPISNIK', 'SLUČAJNI UŽICI', 'SANITARNA SJEČA', 'SANITAR'];
+  function isSlucajniOdjel(odjel) {
+    const u = String(odjel||'').toUpperCase();
+    return SLUCAJNI_KEYWORDS.some(kw => u.includes(kw));
+  }
+
+  function buildSlucajniRows(primke) {
+    const unmatched = primke.filter(p => isSlucajniOdjel(p.odjel));
+    if (!unmatched.length) return [];
+    const map = new Map();
+    unmatched.forEach(p => {
+      if (!map.has(p.odjel)) map.set(p.odjel, { odjel:p.odjel, actual:{ cTrupci:0, celDuga:0, celCijepana:0, skart:0, lTrupci:0, ogrDugi:0, ogrCijepani:0, gule:0, ukupno:0 }, izvSet:new Set() });
+      const r = map.get(p.odjel);
+      if (p.izvodjac) r.izvSet.add(String(p.izvodjac).trim());
+      switch(p.sortiment){
+        case 'TRUPCI Č':    r.actual.cTrupci    += p.kolicina; break;
+        case 'CEL.DUGA':    r.actual.celDuga    += p.kolicina; break;
+        case 'CEL.CIJEPANA':r.actual.celCijepana+= p.kolicina; break;
+        case 'ŠKART':       r.actual.skart      += p.kolicina; break;
+        case 'TRUPCI L':    r.actual.lTrupci    += p.kolicina; break;
+        case 'OGR.DUGI':    r.actual.ogrDugi    += p.kolicina; break;
+        case 'OGR.CIJEPANI':r.actual.ogrCijepani+= p.kolicina; break;
+        case 'GULE':        r.actual.gule       += p.kolicina; break;
+      }
+      r.actual.ukupno = r.actual.cTrupci+r.actual.celDuga+r.actual.celCijepana+r.actual.skart+r.actual.lTrupci+r.actual.ogrDugi+r.actual.ogrCijepani+r.actual.gule;
+    });
+    return Array.from(map.values()).map(r => ({
+      gj: 'Slučajni užici', odjel: r.odjel, odjelLabel: shortOdjel(r.odjel),
+      slucajni: true,
+      bruto:0, neto:0, cTrupci:0, dzgo:0, lTrupci:0, cijepano:0,
+      actual: r.actual, stepen:0, koef:0, status:'u-sjeci', override:'auto',
+      izvodjaci:[...r.izvSet],
+    }));
+  }
+
+  function getModalRows(gj, odjel) {
+    const primkeForOdjel = gj === 'Slučajni užici'
+      ? _rawPrimke.filter(p => p.odjel === odjel)
+      : _rawPrimke.filter(p => normKey(p.odjel) === normKey(gj+' '+odjel));
+    const map = new Map();
+    primkeForOdjel.forEach(p=>{
+      const key = p.datum+'|'+(p.primac||'')+'|'+(p.radiliste||'');
+      if (!map.has(key)) map.set(key, { datum:p.datum, primac:p.primac||'', radiliste:p.radiliste||'', izvodjac:p.izvodjac||'', cTrupci:0, celDuga:0, celCijepana:0, skart:0, lTrupci:0, ogrDugi:0, ogrCijepani:0, gule:0, ukupno:0 });
+      const r = map.get(key);
+      switch(p.sortiment){
+        case 'TRUPCI Č':    r.cTrupci    += p.kolicina; break;
+        case 'CEL.DUGA':    r.celDuga    += p.kolicina; break;
+        case 'CEL.CIJEPANA':r.celCijepana+= p.kolicina; break;
+        case 'ŠKART':       r.skart      += p.kolicina; break;
+        case 'TRUPCI L':    r.lTrupci    += p.kolicina; break;
+        case 'OGR.DUGI':    r.ogrDugi    += p.kolicina; break;
+        case 'OGR.CIJEPANI':r.ogrCijepani+= p.kolicina; break;
+        case 'GULE':        r.gule       += p.kolicina; break;
+      }
+      r.ukupno = r.cTrupci+r.celDuga+r.celCijepana+r.skart+r.lTrupci+r.ogrDugi+r.ogrCijepani+r.gule;
+    });
+    return Array.from(map.values()).sort((a,b)=>{
+      const da = a.datum.split('.').reverse().join('');
+      const db = b.datum.split('.').reverse().join('');
+      return da.localeCompare(db);
+    });
+  }
+
+  // ---- TIMELINE (početak/kraj sječe po odjelu) ----
+  // Isti obrazac kao u js/karta-odjela.js (_buildStatusMap): "kraj sječe"
+  // preskače dane kad je jedini upisani sortiment bio OGR.CIJEPANI i/ili
+  // CEL.CIJEPANA (samo, ili oboje zajedno) — to ogrijevno/celulozno drvo se
+  // često dovršava/čisti i poslije stvarnog kraja sječe glavnih sortimenata.
+  const KRAJ_SJECE_CISCENJE = new Set(['OGR.CIJEPANI', 'CEL.CIJEPANA']);
+
+  function _parseDatumGp(s) {
+    const parts = String(s || '').split('.');
+    if (parts.length < 3) return null;
+    const d = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function _fmtDatumGp(d) {
+    if (!d) return '—';
+    return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear() + '.';
+  }
+  function _dayOfYearGp(d) {
+    return Math.floor((d - new Date(d.getFullYear(), 0, 1)) / 86400000);
+  }
+
+  // Koliko dana pauze u sječi znači da je u pitanju NOVI segment (odjel
+  // sječen u dva ili više navrata) — umjesto jedne trake od prvog do
+  // zadnjeg dana. Namjerno "mjesec dana" — kraće pauze (npr. par sedmica)
+  // su normalne u toku jedne sječe i ne treba ih dijeliti na dva dijela.
+  const SEGMENT_PAUZA_DANA = 30;
+
+  // Vraća NIZ segmenata [{ datumPocetka, datumKraja }, ...] (Date objekti)
+  // za dati odjel — obično jedan, ali dva ili više ako je bila pauza u
+  // sječi duža od SEGMENT_PAUZA_DANA. Prazan niz ako odjel nema nijednu
+  // evidentiranu primku.
+  function computeSjecaSegmenti(gj, odjel) {
+    const primkeZaOdjel = gj === 'Slučajni užici'
+      ? _rawPrimke.filter(p => p.odjel === odjel)
+      : _rawPrimke.filter(p => normKey(p.odjel) === normKey(gj + ' ' + odjel));
+    if (!primkeZaOdjel.length) return [];
+
+    const sortimentiPoDatumu = new Map(); // raw datum string -> Set(sortiment)
+    primkeZaOdjel.forEach(p => {
+      const ds = String(p.datum || '');
+      if (!ds) return;
+      if (!sortimentiPoDatumu.has(ds)) sortimentiPoDatumu.set(ds, new Set());
+      sortimentiPoDatumu.get(ds).add(p.sortiment);
+    });
+    const daniRastuce = [...sortimentiPoDatumu.keys()]
+      .map(raw => ({ raw, date: _parseDatumGp(raw) }))
+      .filter(d => d.date)
+      .sort((a, b) => a.date - b.date);
+    if (!daniRastuce.length) return [];
+
+    // Razdvoji u segmente gdje god je razmak između dva uzastopna dana
+    // veći od SEGMENT_PAUZA_DANA.
+    const grupe = [[daniRastuce[0]]];
+    for (let i = 1; i < daniRastuce.length; i++) {
+      const gapDana = (daniRastuce[i].date - daniRastuce[i - 1].date) / 86400000;
+      if (gapDana > SEGMENT_PAUZA_DANA) grupe.push([daniRastuce[i]]);
+      else grupe[grupe.length - 1].push(daniRastuce[i]);
+    }
+
+    // Po segmentu: početak = prvi dan; kraj = zadnji dan tog segmenta koji
+    // NIJE samo čišćenje (ista logika kao ranije, sad primijenjena po
+    // segmentu — ako je cijeli segment čišćenje, koristi njegov stvarni
+    // zadnji dan).
+    return grupe.map(grupa => {
+      const datumPocetka = grupa[0].date;
+      let datumKraja = null;
+      for (let j = grupa.length - 1; j >= 0; j--) {
+        const skup = sortimentiPoDatumu.get(grupa[j].raw);
+        const samoCiscenje = [...skup].every(s => KRAJ_SJECE_CISCENJE.has(s));
+        if (!samoCiscenje) { datumKraja = grupa[j].date; break; }
+      }
+      if (!datumKraja) datumKraja = grupa[grupa.length - 1].date;
+      return { datumPocetka, datumKraja };
+    });
+  }
+
+  // Ručno (CSS-only) crtanje — JEDAN red po odjelu, sa jednom ili VIŠE
+  // traka na istom redu kad je bila pauza u sječi (Chart.js floating-bar
+  // ne podržava lijepo više odvojenih traka po istoj kategoriji, pa je
+  // ovo pouzdanije nego forsirati to preko više dataset-a).
+  function renderTimeline(rows) {
+    const view = document.getElementById('gp-timeline-view');
+    if (!view) return;
+
+    // Samo odjeli koji stvarno imaju evidentiranu sječu — planirani-a-nepočeti
+    // odjeli nemaju datume za prikaz na timeline-u.
+    const stavke = [];
+    rows.forEach(r => {
+      if (r.status === 'planirano') return;
+      const segmenti = computeSjecaSegmenti(r.gj, r.odjel);
+      if (!segmenti.length) return;
+      const naziv = r.gj === 'Slučajni užici' ? (r.odjelLabel || r.odjel) : r.odjel;
+      const gjKratko = r.gj === 'Slučajni užici' ? 'Slučajni' : r.gj;
+      stavke.push({
+        label: naziv + '  ·  ' + gjKratko,
+        status: r.status,
+        segmenti: segmenti.map(seg => ({
+          dayStart: _dayOfYearGp(seg.datumPocetka),
+          dayEnd: _dayOfYearGp(seg.datumKraja),
+          datumPocetka: seg.datumPocetka,
+          datumKraja: seg.datumKraja,
+        })),
+      });
+    });
+
+    if (!stavke.length) {
+      view.innerHTML = '<div style="text-align:center;padding:60px;color:#9ca3af;">Nema odjela sa evidentiranom sječom za prikazane filtere.</div>';
+      return;
+    }
+
+    const LABEL_COL_WIDTH = 260; // px — dovoljno široko da stane i "Grmeč Jasenica" naziv GJ
+    const monthNazivi = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Avg', 'Sep', 'Okt', 'Nov', 'Dec'];
+    const monthStarts = monthNazivi.map((lbl, i) => ({ lbl, day: _dayOfYearGp(new Date(PLAN_YEAR, i, 1)) }));
+    const totalDays = _dayOfYearGp(new Date(PLAN_YEAR, 11, 31)) + 1; // 365 ili 366 (prestupna)
+    const pct = day => (day / totalDays * 100).toFixed(3);
+    const statusBoja = s => s === 'posjeceno' ? '#16a34a' : '#dc2626';
+
+    const monthHeaderHtml = monthStarts.map((m, i) => {
+      const nextDay = i < 11 ? monthStarts[i + 1].day : totalDays;
+      const width = ((nextDay - m.day) / totalDays * 100).toFixed(3);
+      return `<div style="flex:0 0 ${width}%;text-align:center;font-size:12px;color:#6b7280;font-weight:700;border-left:1px solid #cbd5e1;">${m.lbl}</div>`;
+    }).join('');
+
+    // Linije razdvajanja mjeseci — kao pozadina reda (iza traka sječe), da se
+    // ne mora žonglirati sa z-indexom u odnosu na apsolutno pozicionirane
+    // trake. Jedna hairline na svakoj mjesečnoj granici osim prve (dan 0 je
+    // već obilježen lijevom ivicom kolone).
+    const gridStops = [];
+    monthStarts.slice(1).forEach(m => {
+      const p = pct(m.day);
+      gridStops.push(`transparent ${p}%`, `#e5e7eb ${p}%`, `#e5e7eb calc(${p}% + 1px)`, `transparent calc(${p}% + 1px)`);
+    });
+    const gridBg = gridStops.length ? `background-image:linear-gradient(to right, ${gridStops.join(', ')});` : '';
+
+    const rowsHtml = stavke.map(s => {
+      const barsHtml = s.segmenti.map(seg => {
+        const left = pct(seg.dayStart);
+        const width = pct(Math.max(seg.dayEnd - seg.dayStart + 1, 2));
+        const naslov = s.label + ': ' + _fmtDatumGp(seg.datumPocetka) + ' → ' + _fmtDatumGp(seg.datumKraja);
+        return `<div title="${naslov}" style="position:absolute;left:${left}%;width:${width}%;top:4px;bottom:4px;min-width:5px;background:${statusBoja(s.status)};border-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.15);"></div>`;
+      }).join('');
+      return `
+        <div style="display:flex;align-items:center;border-bottom:1px solid #f1f5f9;">
+          <div style="flex:0 0 ${LABEL_COL_WIDTH}px;padding:6px 10px;font-size:13px;font-weight:600;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.label}</div>
+          <div style="flex:1;position:relative;height:28px;${gridBg}">${barsHtml}</div>
+        </div>`;
+    }).join('');
+
+    view.innerHTML = `
+      <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:16px;overflow-x:auto;">
+        <div style="font-size:12px;color:#6b7280;margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;">
+          <span><span style="display:inline-block;width:10px;height:10px;background:#16a34a;border-radius:2px;margin-right:5px;vertical-align:middle;"></span>Posječeno</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#dc2626;border-radius:2px;margin-right:5px;vertical-align:middle;"></span>U sječi (do sad)</span>
+          <span style="color:#9ca3af;">Odjel sječen u dva navrata (pauza &gt; ${SEGMENT_PAUZA_DANA} dana) prikazan je sa dvije trake na istom redu.</span>
+        </div>
+        <div style="min-width:760px;">
+          <div style="display:flex;">
+            <div style="flex:0 0 ${LABEL_COL_WIDTH}px;"></div>
+            <div style="flex:1;display:flex;border-bottom:2px solid #cbd5e1;padding-bottom:5px;margin-bottom:2px;">${monthHeaderHtml}</div>
+          </div>
+          ${rowsHtml}
+        </div>
+      </div>`;
+  }
+
+  // ---- FILTERING ----
+  function filteredRows() {
+    let rows = [..._rows];
+    if (_gjFilter !== 'sve') rows = rows.filter(r=>r.gj===_gjFilter);
+    if (_stFilter !== 'sve') rows = rows.filter(r=>r.status===_stFilter);
+    if (_izvFilter !== 'sve') rows = rows.filter(r=>(r.izvodjaci||[]).includes(_izvFilter));
+    if (_search.trim()) {
+      const q = _search.trim().toUpperCase();
+      rows = rows.filter(r=>r.odjel.toUpperCase().includes(q)||r.gj.toUpperCase().includes(q));
+    }
+    return rows;
+  }
+
+  function sortedWithinGj(rows, tab) {
+    const { col, asc } = _sort[tab]||{ col:'odjel', asc:true };
+    const dir = asc ? 1 : -1;
+    const planned   = rows.filter(r => !r.slucajni);
+    const slucajni  = rows.filter(r =>  r.slucajni);
+    const grouped = GJ_LIST.map(gj=>({gj, rows:planned.filter(r=>r.gj===gj)}));
+    if (slucajni.length) grouped.push({ gj:'Slučajni užici', rows:slucajni });
+    grouped.forEach(g=>{
+      g.rows.sort((a,b)=>{
+        let av, bv;
+        if (col==='odjel')       { av=a.odjelLabel||a.odjel; bv=b.odjelLabel||b.odjel; }
+        else if (col==='neto')   { av=a.neto;    bv=b.neto; }
+        else if (col==='ukupno') { av=a.actual.ukupno; bv=b.actual.ukupno; }
+        else if (col==='stepen') { av=a.stepen;  bv=b.stepen; }
+        else { av=a.odjelLabel||a.odjel; bv=b.odjelLabel||b.odjel; }
+        if (typeof av==='string') return av.localeCompare(bv,'bs')*dir;
+        return ((av||0)-(bv||0))*dir;
+      });
+    });
+    return grouped;
+  }
+
+  function sortArrow(tab, col) {
+    const s = _sort[tab];
+    if (!s || s.col!==col) return '<span style="color:#6b7280;font-size:10px;">⇅</span>';
+    return s.asc ? '<span style="color:#059669;font-size:10px;">↑</span>' : '<span style="color:#059669;font-size:10px;">↓</span>';
+  }
+
+  // ---- MAIN LOAD ----
+  // Filtrira raw primke array po PLAN_YEAR i renderira UI
+  function _processPrimke(raw) {
+    const primke = (raw||[]).filter(p=>{
+      const parts=(p.datum||'').split('.');
+      return parts.length>=3 && parseInt(parts[2])===PLAN_YEAR;
+    });
+    _rawPrimke = primke;
+    _rows = [...buildRows(primke), ...buildSlucajniRows(primke)];
+    _loaded = true;
+    refreshIzvodjaciFilter();
+    renderActiveTab();
+    if (typeof markTabRendered==='function') markTabRendered('godisnji-plan');
+  }
+
+  // Vraća parsed cache iz localStorage ili null
+  function _readCache(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return (obj && obj.data) ? obj.data : null;
+    } catch(e) { return null; }
+  }
+
+  async function loadGodisnjiPlan(force) {
+    if (_loading) return;
+    _loading = true;
+    const el = document.getElementById('godisnji-plan-content');
+    if (!el) { _loading=false; return; }
+    el.classList.remove('hidden');
+
+    // 🚀 TURBO: instant render iz keša (dijeli ga sa "Primke (Sječa)" preload-om)
+    // Prioritet: shared key (cache_primke_sjeca) → GP-specific key (legacy)
+    const sharedKey = 'cache_primke_sjeca';
+    const legacyKey = 'cache_gp_primke_'+PLAN_YEAR;
+    let instant = !force && (_readCache(sharedKey) || _readCache(legacyKey));
+    if (instant && instant.primke) {
+      try { _processPrimke(instant.primke); } catch(e) { instant = null; }
+    }
+    if (!instant) showLoading();
+
+    try {
+      const url = buildApiUrl('primke');
+      // Backend za primke može biti spor (60-120s) — dajemo dovoljno vremena
+      const data = await fetchWithCache(url, sharedKey, force||false, 150000);
+      if (data.error) throw new Error(data.error);
+      _processPrimke(data.primke);
+      // Cleanup legacy cache key (jednom uspješno učitano → više ne treba)
+      try { localStorage.removeItem(legacyKey); } catch(e) {}
+    } catch(err) {
+      if (instant) {
+        // Imamo stale render u UI — samo tiho loguj
+        console.warn('[GP] refresh failed, koristim stale cache:', err.message);
+      } else {
+        // Nema ni keša ni mreže — pokušaj jednom više sa stale kešom ako postoji
+        const stale = _readCache(sharedKey) || _readCache(legacyKey);
+        if (stale && stale.primke) {
+          console.warn('[GP] mreža pala, prikazujem stale keš:', err.message);
+          try { _processPrimke(stale.primke); } catch(e2) {}
+        } else {
+          console.error('[GP]', err);
+          const v = document.getElementById('gp-'+_activeTab+'-view');
+          if (v) v.innerHTML = `<div style="text-align:center;padding:60px;color:#dc2626;"><div style="font-size:32px;margin-bottom:12px;">❌</div>Server je spor ili nedostupan.<br><small style="color:#4b5563;">${err.message}</small><br><br><button class="btn btn-primary" onclick="loadGodisnjiPlan(true)">Pokušaj ponovo</button></div>`;
+        }
+      }
+    } finally {
+      _loading = false;
+    }
+  }
+
+  function showLoading() {
+    ['grupe','sortimenti','pregled','projekat','timeline'].forEach(t=>{
+      const v = document.getElementById('gp-'+t+'-view');
+      if (v && t===_activeTab) v.innerHTML = '<div style="text-align:center;padding:60px;color:#4b5563;"><div style="font-size:32px;margin-bottom:12px;">⏳</div>Učitavam podatke...</div>';
+    });
+  }
+
+  // ---- TAB SWITCHING ----
+  function switchGpTab(tab) {
+    _activeTab = tab;
+    document.querySelectorAll('#gp-submenu .submenu-tab').forEach(b=>{
+      b.classList.toggle('active', b.dataset.tab===tab);
+    });
+    ['grupe','sortimenti','pregled','projekat','timeline'].forEach(t=>{
+      const v = document.getElementById('gp-'+t+'-view');
+      if (v) v.classList.toggle('hidden', t!==tab);
+    });
+    if (_loaded) renderActiveTab();
+    else loadGodisnjiPlan(false);
+  }
+
+  function renderActiveTab() {
+    const rows = filteredRows();
+    if (_activeTab==='grupe')      renderGrupe(rows);
+    else if (_activeTab==='sortimenti') renderSortimenti(rows);
+    else if (_activeTab==='pregled')    renderPregled(rows);
+    else if (_activeTab==='projekat')   renderProjekat(rows);
+    else if (_activeTab==='timeline')   renderTimeline(rows);
+  }
+
+  // ---- RENDER: GRUPE ----
+  function thSort(tab, col, label) {
+    const active = _sort[tab] && _sort[tab].col === col;
+    return `<th onclick="gpSort('${tab}','${col}')" style="cursor:pointer;white-space:nowrap;${active?'background:rgba(255,255,255,0.12);':''}">${label} ${sortArrow(tab,col)}</th>`;
+  }
+
+  // Border-left separators between sortiment groups (used on both th and td)
+  const BL = {
+    ct:  `border-left:2px solid rgba(30,64,175,0.35);`,
+    dz:  `border-left:2px solid rgba(91,33,182,0.35);`,
+    lt:  `border-left:2px solid rgba(21,128,61,0.35);`,
+    cij: `border-left:2px solid rgba(180,83,9,0.35);`,
+    tot: `border-left:2px solid rgba(71,85,105,0.4);`,
+  };
+  // Inline style for td cells inside dark total rows — overrides any CSS class color
+  const WR = 'text-align:right;color:white;padding:6px 8px;';
+
+  function renderGrupe(rows) {
+    const view = document.getElementById('gp-grupe-view');
+    if (!view) return;
+    const grouped = sortedWithinGj(rows, 'grupe');
+    const grand   = sumRows(rows);
+    let html = `
+    <div class="enterprise-card">
+      <div class="enterprise-card-header">
+        <div><h2>📊 Po grupama — odjeli i sortimenti</h2><span class="card-subtitle">Plan vs. ostvareno po svakom odjelu</span></div>
+        <button onclick="gpExportCsv('grupe')" style="background:rgba(5,150,105,0.1);color:#059669;border:1px solid #059669;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;">📥 Export CSV</button>
+      </div>
+      <div class="enterprise-card-body">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <table class="monthly-table" style="width:100%;min-width:900px;font-size:12px;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#1e3a5f;color:white;">
+          <th rowspan="2" style="width:32px;text-align:center;">#</th>
+          <th rowspan="2" style="min-width:72px;text-align:left;padding-left:10px;">Odjel</th>
+          <th rowspan="2" style="min-width:90px;">Status</th>
+          <th colspan="2" style="background:#1e3399;text-align:center;${BL.ct}">Trupci Č</th>
+          <th colspan="4" style="background:#3b1080;text-align:center;${BL.dz}">Cjepano Č</th>
+          <th colspan="2" style="background:#14532d;text-align:center;${BL.lt}">Trupci L</th>
+          <th colspan="4" style="background:#7c2d12;text-align:center;${BL.cij}">Cjepano L</th>
+          <th rowspan="2" onclick="gpSort('grupe','neto')" style="cursor:pointer;min-width:70px;${BL.tot}">Plan m³ ${sortArrow('grupe','neto')}</th>
+          <th rowspan="2" onclick="gpSort('grupe','ukupno')" style="cursor:pointer;min-width:70px;">Ostvr. m³ ${sortArrow('grupe','ukupno')}</th>
+          <th rowspan="2" onclick="gpSort('grupe','stepen')" style="cursor:pointer;min-width:72px;">Stepen ${sortArrow('grupe','stepen')}</th>
+        </tr>
+        <tr style="background:#243b6e;color:white;font-size:11px;">
+          <th style="background:#dbeafe;color:#1e40af;${BL.ct}">Plan</th>
+          <th style="background:#dbeafe;color:#1e40af;">Ostvr.</th>
+          <th style="background:#ede9fe;color:#5b21b6;${BL.dz}">Plan</th>
+          <th style="background:#ede9fe;color:#5b21b6;">Cel.d.</th>
+          <th style="background:#ede9fe;color:#6d28d9;">Cel.c.</th>
+          <th style="background:#f1f5f9;color:#64748b;">Škart</th>
+          <th style="background:#dcfce7;color:#166534;${BL.lt}">Plan</th>
+          <th style="background:#dcfce7;color:#166534;">Ostvr.</th>
+          <th style="background:#ffedd5;color:#9a3412;${BL.cij}">Plan</th>
+          <th style="background:#ffedd5;color:#9a3412;">Ogr.d.</th>
+          <th style="background:#ffedd5;color:#c2410c;">Ogr.c.</th>
+          <th style="background:#fef9c3;color:#a16207;">Gule</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    grouped.forEach(({gj, rows:gr})=>{
+      if (!gr.length) return;
+      const sub = sumRows(gr);
+      const gjColor = GJ_COLOR[gj];
+      html += gjHeaderRow(gj, 18);
+
+      gr.forEach((r,i)=>{
+        const stripe = i%2===1 ? 'background:#fafbfc;' : '';
+        html += `<tr style="${stripe}border-bottom:1px solid #f1f5f9;">
+          <td style="color:#cbd5e1;font-size:11px;text-align:center;padding:7px 4px;">${i+1}</td>
+          <td style="padding:7px 8px;">${odjelLink(r.gj,r.odjel,r.odjelLabel)}</td>
+          <td style="padding:7px 8px;white-space:nowrap;">${statusBadge(r.status)}${statusSelectHtml(r.gj,r.odjel,r.override)}</td>
+          <td class="right" style="${BL.ct}color:#94a3b8;">${fmt(r.cTrupci)}</td>
+          <td class="right" style="color:${C.cTrupci};font-weight:700;">${fmt(r.actual.cTrupci)}</td>
+          <td class="right" style="${BL.dz}color:#94a3b8;">${fmt(r.dzgo)}</td>
+          <td class="right" style="color:${C.celDuga};">${fmt(r.actual.celDuga)}</td>
+          <td class="right" style="color:${C.celCijepana};">${fmt(r.actual.celCijepana)}</td>
+          <td class="right" style="color:${C.skart};">${fmt(r.actual.skart)}</td>
+          <td class="right" style="${BL.lt}color:#94a3b8;">${fmt(r.lTrupci)}</td>
+          <td class="right" style="color:${C.lTrupci};font-weight:700;">${fmt(r.actual.lTrupci)}</td>
+          <td class="right" style="${BL.cij}color:#94a3b8;">${fmt(r.cijepano)}</td>
+          <td class="right" style="color:${C.ogrDugi};">${fmt(r.actual.ogrDugi)}</td>
+          <td class="right" style="color:${C.ogrCijepani};">${fmt(r.actual.ogrCijepani)}</td>
+          <td class="right" style="color:${C.gule};">${fmt(r.actual.gule)}</td>
+          <td class="right" style="${BL.tot}font-weight:600;">${fmt(r.neto)}</td>
+          <td class="right" style="font-weight:700;color:#0f172a;">${fmt(r.actual.ukupno)}</td>
+          <td class="right">${realizacijaBadge(r.stepen)}</td>
+        </tr>`;
+      });
+
+      html += `<tr style="${subTotalStyle(gj)}">
+        <td style="padding:6px 4px;"></td>
+        <td style="padding:6px 8px;color:${gjColor};font-size:11px;white-space:nowrap;">Σ ${gj.split(' ')[0]}</td>
+        <td></td>
+        <td class="right" style="${BL.ct}">${fmt(sub.planCT)}</td><td class="right" style="color:${C.cTrupci};">${fmt(sub.actCT)}</td>
+        <td class="right" style="${BL.dz}">${fmt(sub.planDz)}</td><td class="right">${fmt(sub.celDuga)}</td><td class="right">${fmt(sub.celCij)}</td><td class="right">${fmt(sub.skart)}</td>
+        <td class="right" style="${BL.lt}">${fmt(sub.planLT)}</td><td class="right" style="color:${C.lTrupci};">${fmt(sub.actLT)}</td>
+        <td class="right" style="${BL.cij}">${fmt(sub.planCij)}</td><td class="right">${fmt(sub.ogrDugi)}</td><td class="right">${fmt(sub.ogrCij)}</td><td class="right">${fmt(sub.gule)}</td>
+        <td class="right" style="${BL.tot}">${fmt(sub.neto)}</td>
+        <td class="right" style="color:${gjColor};">${fmt(sub.ukupno)}</td>
+        <td class="right">${realizacijaBadge(sub.stepen)}</td>
+      </tr>`;
+    });
+
+    html += `<tr style="background:#1e293b;color:white;font-weight:700;border-top:3px solid #334155;">
+      <td colspan="2" style="padding:8px 12px;color:white;">UKUPNO</td><td></td>
+      <td style="${WR}${BL.ct}">${fmtN(grand.planCT)}</td><td style="${WR}">${fmtN(grand.actCT)}</td>
+      <td style="${WR}${BL.dz}">${fmtN(grand.planDz)}</td><td style="${WR}">${fmtN(grand.celDuga)}</td><td style="${WR}">${fmtN(grand.celCij)}</td><td style="${WR}">${fmtN(grand.skart)}</td>
+      <td style="${WR}${BL.lt}">${fmtN(grand.planLT)}</td><td style="${WR}">${fmtN(grand.actLT)}</td>
+      <td style="${WR}${BL.cij}">${fmtN(grand.planCij)}</td><td style="${WR}">${fmtN(grand.ogrDugi)}</td><td style="${WR}">${fmtN(grand.ogrCij)}</td><td style="${WR}">${fmtN(grand.gule)}</td>
+      <td style="${WR}${BL.tot}">${fmtN(grand.neto)}</td><td style="${WR}">${fmtN(grand.ukupno)}</td><td style="text-align:right;padding:6px 8px;">${realizacijaBadge(grand.stepen)}</td>
+    </tr>
+    </tbody></table></div>
+    <p style="margin-top:10px;font-size:11px;color:#94a3b8;padding:0 4px;">
+      Cjepano Č plan = Cel.duga + Cel.cijepana + Škart &nbsp;·&nbsp; Cjepano L plan = Ogr.dugo + Ogr.cijepano + Gule
+    </p>
+    </div></div>`;
+
+    view.innerHTML = html;
+  }
+
+  // ---- RENDER: SORTIMENTI ----
+  function renderSortimenti(rows) {
+    const view = document.getElementById('gp-sortimenti-view');
+    if (!view) return;
+    const grand = sumRows(rows);
+    const grouped = sortedWithinGj(rows, 'sortimenti');
+
+    // KPI cards
+    const cards = [
+      { lbl:'Trupci Č',  plan:grand.planCT,  act:grand.actCT,  pct:grand.pctCT,  col:C.cTrupci  },
+      { lbl:'Cjepano Č', plan:grand.planDz,  act:grand.celDuga+grand.celCij+grand.skart, pct:grand.pctDz, col:C.celDuga },
+      { lbl:'Trupci L',  plan:grand.planLT,  act:grand.actLT,  pct:grand.pctLT,  col:C.lTrupci  },
+      { lbl:'Cjepano L', plan:grand.planCij, act:grand.ogrDugi+grand.ogrCij+grand.gule, pct:grand.pctCij, col:C.ogrCijepani },
+    ];
+
+    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px;">';
+    cards.forEach(({lbl,plan,act,pct,col})=>{
+      const ost = Math.max(0, plan-act);
+      html += `<div class="section" style="padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:14px;font-weight:700;color:#374151;">${lbl}</span>
+          ${realizacijaBadge(pct)}
+        </div>
+        <div style="font-size:22px;font-weight:800;color:${col};">${fmtN(act)} <span style="font-size:13px;font-weight:400;color:#4b5563;">m³</span></div>
+        <div style="font-size:12px;color:#4b5563;margin:4px 0;">od ${fmtN(plan)} m³ plana</div>
+        ${bar2(pct, col)}
+        <div style="font-size:11px;color:#6b7280;margin-top:6px;">Ostalo: ${fmtN(ost)} m³</div>
+      </div>`;
+    });
+    html += '</div>';
+
+    // Ukupna realizacija card
+    html += `<div class="section" style="margin-bottom:24px;">
+      <h2 style="font-size:16px;margin-bottom:12px;">📈 Ukupna realizacija godišnjeg plana ${PLAN_YEAR}</h2>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+        <div><span style="font-size:13px;color:#4b5563;">Plan neto: </span><strong>${fmtN(grand.neto)} m³</strong></div>
+        <div><span style="font-size:13px;color:#4b5563;">Ostvareno: </span><strong style="color:#059669;">${fmtN(grand.ukupno)} m³</strong></div>
+        ${realizacijaBadge(grand.stepen)}
+      </div>
+      <div style="height:10px;background:#e5e7eb;border-radius:5px;margin-bottom:16px;"><div style="height:100%;width:${Math.min(100,grand.stepen).toFixed(1)}%;background:#059669;border-radius:5px;transition:width 0.4s;"></div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+        ${cards.map(({lbl,pct,col})=>`<div style="font-size:12px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:#374151;">${lbl}</span><span style="color:${col};font-weight:700;">${pct.toFixed(1)}%</span></div>
+          ${bar2(pct,col)}
+        </div>`).join('')}
+      </div>
+    </div>`;
+
+    // Table
+    html += `<div class="enterprise-card">
+      <div class="enterprise-card-header">
+        <div><h2>📋 Tabela realizacije po odjelima</h2></div>
+        <button onclick="gpExportCsv('sortimenti')" style="background:rgba(5,150,105,0.1);color:#059669;border:1px solid #059669;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;">📥 Export CSV</button>
+      </div>
+      <div class="enterprise-card-body">
+      <div style="overflow-x:auto;">
+      <table class="monthly-table" style="width:100%;font-size:12px;">
+      <thead><tr>
+        <th>#</th><th style="text-align:left;">GJ</th>
+        ${thSort('sortimenti','odjel','Odjel')}
+        <th>Status</th>
+        ${thSort('sortimenti','koef','Koef.')}
+        ${thSort('sortimenti','neto','Plan m³')}
+        ${thSort('sortimenti','ukupno','Ostvr. m³')}
+        ${thSort('sortimenti','stepen','Stepen')}
+        <th>Trupci Č %</th><th>Cjepano Č %</th><th>Trupci L %</th><th>Cjepano L %</th>
+        <th>Progres</th>
+      </tr></thead><tbody>`;
+
+    let rowNum = 0;
+    grouped.forEach(({gj, rows:gr})=>{
+      if (!gr.length) return;
+      const sub = sumRows(gr);
+      html += gjHeaderRow(gj, 13);
+      gr.forEach((r,i)=>{
+        rowNum++;
+        const pctCT  = r.cTrupci>0?r.actual.cTrupci/r.cTrupci*100:null;
+        const pctDz  = r.dzgo>0?dzgoAct(r.actual)/r.dzgo*100:null;
+        const pctLT  = r.lTrupci>0?r.actual.lTrupci/r.lTrupci*100:null;
+        const pctCij = r.cijepano>0?cijAct(r.actual)/r.cijepano*100:null;
+        const stripe = i%2===1 ? 'background:#fafbfc;' : '';
+        html += `<tr style="${stripe}border-bottom:1px solid #f1f5f9;">
+          <td style="color:#cbd5e1;font-size:11px;text-align:center;padding:7px 4px;">${rowNum}</td>
+          <td style="padding:7px 8px;">${gjBadge(gj)}</td>
+          <td style="padding:7px 8px;">${odjelLink(r.gj,r.odjel,r.odjelLabel)}</td>
+          <td style="padding:7px 8px;">${statusBadge(r.status)}</td>
+          <td class="right" style="color:${koefColor(r.koef)};font-weight:600;padding:7px 8px;">${r.koef.toFixed(1)}%</td>
+          <td class="right" style="padding:7px 8px;">${fmt(r.neto)}</td>
+          <td class="right" style="font-weight:600;padding:7px 8px;">${fmt(r.actual.ukupno)}</td>
+          <td class="right" style="padding:7px 8px;">${realizacijaBadge(r.stepen)}</td>
+          <td class="right" style="padding:7px 8px;">${pctCT!=null?realizacijaBadge(pctCT):'<span style="color:#6b7280">—</span>'}</td>
+          <td class="right" style="padding:7px 8px;">${pctDz!=null?realizacijaBadge(pctDz):'<span style="color:#6b7280">—</span>'}</td>
+          <td class="right" style="padding:7px 8px;">${pctLT!=null?realizacijaBadge(pctLT):'<span style="color:#6b7280">—</span>'}</td>
+          <td class="right" style="padding:7px 8px;">${pctCij!=null?realizacijaBadge(pctCij):'<span style="color:#6b7280">—</span>'}</td>
+          <td style="padding:7px 8px;">${bar2(r.stepen,'#059669')}</td>
+        </tr>`;
+      });
+      html += `<tr style="${subTotalStyle(gj)}">
+        <td style="padding:6px 4px;"></td><td style="padding:6px 8px;">${gjBadge(gj)}</td>
+        <td style="padding:6px 8px;color:${GJ_COLOR[gj]};font-size:11px;">Σ ${gj.split(' ')[0]}</td><td></td><td></td>
+        <td class="right" style="padding:6px 8px;">${fmt(sub.neto)}</td>
+        <td class="right" style="padding:6px 8px;color:${GJ_COLOR[gj]};">${fmt(sub.ukupno)}</td>
+        <td class="right" style="padding:6px 8px;">${realizacijaBadge(sub.stepen)}</td>
+        <td class="right" style="padding:6px 8px;">${realizacijaBadge(sub.pctCT)}</td>
+        <td class="right" style="padding:6px 8px;">${realizacijaBadge(sub.pctDz)}</td>
+        <td class="right" style="padding:6px 8px;">${realizacijaBadge(sub.pctLT)}</td>
+        <td class="right" style="padding:6px 8px;">${realizacijaBadge(sub.pctCij)}</td>
+        <td></td>
+      </tr>`;
+    });
+
+    html += `<tr style="background:#1e293b;color:white;font-weight:700;">
+      <td colspan="2" style="color:white;padding:6px 8px;">UKUPNO</td><td></td><td></td><td></td>
+      <td style="${WR}">${fmtN(grand.neto)}</td><td style="${WR}">${fmtN(grand.ukupno)}</td>
+      <td style="text-align:right;padding:6px 8px;">${realizacijaBadge(grand.stepen)}</td>
+      <td style="text-align:right;padding:6px 8px;">${realizacijaBadge(grand.pctCT)}</td>
+      <td style="text-align:right;padding:6px 8px;">${realizacijaBadge(grand.pctDz)}</td>
+      <td style="text-align:right;padding:6px 8px;">${realizacijaBadge(grand.pctLT)}</td>
+      <td style="text-align:right;padding:6px 8px;">${realizacijaBadge(grand.pctCij)}</td>
+      <td></td>
+    </tr></tbody></table></div></div></div>`;
+
+    view.innerHTML = html;
+  }
+
+  // ---- RENDER: PREGLED ----
+  function renderPregled(rows) {
+    const view = document.getElementById('gp-pregled-view');
+    if (!view) return;
+    const grouped = sortedWithinGj(rows, 'pregled');
+    const grand   = sumRows(rows);
+
+    let html = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+      <span style="font-size:13px;font-weight:600;color:#374151;">Legenda:</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;"><span style="width:14px;height:14px;background:#dcfce7;border:1px solid #86efac;border-radius:3px;display:inline-block;"></span>Posječeno</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;"><span style="width:14px;height:14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:3px;display:inline-block;"></span>U sječi</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;"><span style="width:14px;height:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:3px;display:inline-block;"></span>Planirano</span>
+    </div>
+    <div class="enterprise-card">
+      <div class="enterprise-card-header">
+        <div><h2>📋 Pregled plana sječe ${PLAN_YEAR}</h2></div>
+        <button onclick="gpExportCsv('pregled')" style="background:rgba(5,150,105,0.1);color:#059669;border:1px solid #059669;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;">📥 Export CSV</button>
+      </div>
+      <div class="enterprise-card-body">
+      <div style="overflow-x:auto;">
+      <table class="monthly-table" style="width:100%;font-size:12px;">
+      <thead><tr>
+        <th>Rb.</th>
+        ${thSort('pregled','odjel','Odjel')}
+        ${thSort('pregled','neto','Bruto m³')}
+        <th class="right">Neto m³</th>
+        <th class="right">Trupci Č</th>
+        <th class="right">Cjepano Č</th>
+        <th class="right">Trupci L</th>
+        <th class="right">Cjepano L</th>
+        <th>Status</th>
+      </tr></thead><tbody>`;
+
+    let rowNum=0;
+    grouped.forEach(({gj, rows:gr})=>{
+      if (!gr.length) return;
+      const sub = sumRows(gr);
+      html += gjHeaderRow(gj, 9);
+      gr.forEach((r,i)=>{
+        rowNum++;
+        const rowBg = r.status==='posjeceno'?'background:#f0fdf4;':r.status==='u-sjeci'?'background:#fffbeb;':i%2===1?'background:#fafbfc;':'';
+        html += `<tr style="${rowBg}border-bottom:1px solid #f1f5f9;">
+          <td style="color:#cbd5e1;font-size:11px;text-align:center;padding:7px 4px;">${rowNum}</td>
+          <td style="padding:7px 8px;">${odjelLink(r.gj,r.odjel,r.odjelLabel)}</td>
+          <td class="right" style="padding:7px 8px;">${fmt(r.bruto)}</td>
+          <td class="right" style="padding:7px 8px;">${fmt(r.neto)}</td>
+          <td class="right" style="padding:7px 8px;color:${C.cTrupci};">${r.cTrupci?fmt(r.cTrupci):'—'}</td>
+          <td class="right" style="padding:7px 8px;color:${C.celDuga};">${r.dzgo?fmt(r.dzgo):'—'}</td>
+          <td class="right" style="padding:7px 8px;color:${C.lTrupci};">${r.lTrupci?fmt(r.lTrupci):'—'}</td>
+          <td class="right" style="padding:7px 8px;color:${C.ogrCijepani};">${r.cijepano?fmt(r.cijepano):'—'}</td>
+          <td style="padding:7px 8px;">${statusBadge(r.status)}</td>
+        </tr>`;
+      });
+      html += `<tr style="${subTotalStyle(gj)}">
+        <td style="padding:6px 4px;"></td>
+        <td style="padding:6px 8px;color:${GJ_COLOR[gj]};font-size:11px;">Σ ${gj.split(' ')[0]}</td>
+        <td class="right" style="padding:6px 8px;">${fmt(sub.bruto)}</td>
+        <td class="right" style="padding:6px 8px;">${fmt(sub.neto)}</td>
+        <td class="right" style="padding:6px 8px;color:${C.cTrupci};">${fmt(sub.planCT)}</td>
+        <td class="right" style="padding:6px 8px;color:${C.celDuga};">${fmt(sub.planDz)}</td>
+        <td class="right" style="padding:6px 8px;color:${C.lTrupci};">${fmt(sub.planLT)}</td>
+        <td class="right" style="padding:6px 8px;color:${C.ogrCijepani};">${fmt(sub.planCij)}</td>
+        <td></td>
+      </tr>`;
+    });
+
+    html += `<tr style="background:#1e293b;color:white;font-weight:700;">
+      <td colspan="2" style="color:white;padding:6px 8px;">UKUPNO</td>
+      <td style="${WR}">${fmtN(grand.bruto)}</td><td style="${WR}">${fmtN(grand.neto)}</td>
+      <td style="${WR}">${fmtN(grand.planCT)}</td>
+      <td style="${WR}">${fmtN(grand.planDz)}</td>
+      <td style="${WR}">${fmtN(grand.planLT)}</td>
+      <td style="${WR}">${fmtN(grand.planCij)}</td>
+      <td></td>
+    </tr></tbody></table></div></div></div>`;
+
+    view.innerHTML = html;
+  }
+
+  // ---- RENDER: PROJEKAT ----
+
+  // Čita stanje-zaliha cache i vraća mapu normKey(odjel) → projekat količine
+  function buildSzProjekatMap() {
+    const map = {};
+    try {
+      const raw = localStorage.getItem('cache_stanje_zaliha');
+      if (!raw) return map;
+      const parsed = JSON.parse(raw);
+      const odjeli = (parsed.data && parsed.data.odjeli) || [];
+      const sumK = (d, keys) => keys.reduce((t,k) => t+(parseFloat(d[k])||0), 0);
+      odjeli.forEach(o => {
+        const proj = o.projekat || {};
+        const cT = sumK(proj, ['F/L Č','I Č','II Č','III Č','RD']);
+        const dz = sumK(proj, ['CEL.DUGA','CEL.CIJEPANA','ŠKART']);
+        const lT = sumK(proj, ['F/L L','I L','II L','III L']);
+        const cj = sumK(proj, ['OGR.DUGI','OGR.CIJEPANI','GULE']);
+        map[normKey(o.odjel)] = { cTrupci:cT, dzgo:dz, lTrupci:lT, cijepano:cj, neto:cT+dz+lT+cj };
+      });
+    } catch(e) {}
+    return map;
+  }
+
+  function renderProjekat(rows) {
+    const view = document.getElementById('gp-projekat-view');
+    if (!view) return;
+    const grouped = sortedWithinGj(rows, 'projekat');
+    const grand   = sumRows(rows);
+
+    // Stanje zaliha projekat mapa (red 1 iz SZ)
+    const szMap = buildSzProjekatMap();
+    const hasSz = Object.keys(szMap).length > 0;
+    const szNote = hasSz
+      ? '<span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:10px;border:1px solid #bfdbfe;margin-left:8px;">📋 iz Stanja zaliha</span>'
+      : '<span style="font-size:11px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;border:1px solid #fcd34d;margin-left:8px;">⚠️ SZ keš nije učitan</span>';
+
+    let html = `
+    <div class="enterprise-card">
+      <div class="enterprise-card-header">
+        <div><h2>📐 Plan po projektu ${PLAN_YEAR} ${szNote}</h2><span class="card-subtitle">Projekat (iz Stanja zaliha) vs. Sječa po odjelima</span></div>
+        <button onclick="gpExportCsv('projekat')" style="background:rgba(5,150,105,0.1);color:#059669;border:1px solid #059669;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;">📥 Export CSV</button>
+      </div>
+      <div class="enterprise-card-body">
+      <div style="overflow-x:auto;">
+      <table class="monthly-table" style="width:100%;font-size:12px;min-width:640px;">
+      <thead><tr>
+        <th>Rb.</th><th style="text-align:left;">Odjel</th><th>Stavka</th>
+        <th class="right">Trupci Č</th><th class="right">Cjepano Č</th>
+        <th class="right">Trupci L</th><th class="right">Cjepano L</th>
+        <th class="right">Ukupno m³</th><th>Stepen</th>
+      </tr></thead><tbody>`;
+
+    // Grandtotals za SZ projekat vrijednosti (računamo ih ručno jer row.neto ostaje plan)
+    let gCT=0,gDz=0,gLT=0,gCj=0,gNeto=0;
+
+    let odjelNum=0;
+    grouped.forEach(({gj, rows:gr})=>{
+      if (!gr.length) return;
+      const sub = sumRows(gr);
+      const gjCol = GJ_COLOR[gj];
+      const gjBg  = GJ_BG[gj];
+      html += gjHeaderRow(gj, 9);
+
+      // GJ subtotali za SZ projekat
+      let sCT=0,sDz=0,sLT=0,sCj=0,sNeto=0;
+
+      gr.forEach((r,i)=>{
+        odjelNum++;
+        const dzA=dzgoAct(r.actual), cjA=cijAct(r.actual);
+        const R = 'text-align:right;padding:7px 10px;';
+
+        // Stanje zaliha projekat: r.odjel je samo broj (npr. "50"), SZ ima puni naziv ("Risovac Krupa 50")
+        // Koristimo r.gj + ' ' + r.odjel da bi se poklopio sa normKey(o.odjel) iz SZ
+        const szKey = r.slucajni ? normKey(r.odjel) : normKey(r.gj + ' ' + r.odjel);
+        const sz = szMap[szKey] || null;
+        const pCT  = sz ? sz.cTrupci  : r.cTrupci;
+        const pDz  = sz ? sz.dzgo     : r.dzgo;
+        const pLT  = sz ? sz.lTrupci  : r.lTrupci;
+        const pCj  = sz ? sz.cijepano : r.cijepano;
+        const pNet = sz ? sz.neto     : r.neto;
+        const fallback = !sz;
+        const projLabel = fallback
+          ? '📐 Plan <span style="font-size:9px;color:#6b7280;">(nema SZ)</span>'
+          : '📐 Projekat';
+
+        sCT+=pCT; sDz+=pDz; sLT+=pLT; sCj+=pCj; sNeto+=pNet;
+        gCT+=pCT; gDz+=pDz; gLT+=pLT; gCj+=pCj; gNeto+=pNet;
+
+        // Stepen: sječa / projekat
+        const szStepen = pNet > 0 ? r.actual.ukupno / pNet * 100 : r.stepen;
+
+        html += `
+        <tr style="background:#eff6ff;">
+          <td rowspan="2" style="color:#94a3b8;font-size:11px;text-align:center;vertical-align:middle;padding:8px 4px;border-left:3px solid ${gjCol}44;">${odjelNum}</td>
+          <td rowspan="2" style="vertical-align:middle;padding:8px 10px;background:#f0f4ff;">${odjelLink(r.gj,r.odjel,r.odjelLabel)}</td>
+          <td style="color:#1d4ed8;font-size:11px;font-weight:700;white-space:nowrap;padding:8px 10px;border-left:3px solid #93c5fd;background:#dbeafe44;">${projLabel}</td>
+          <td style="${R}color:#475569;">${fmt(pCT)}</td>
+          <td style="${R}color:#475569;">${fmt(pDz)}</td>
+          <td style="${R}color:#475569;">${fmt(pLT)}</td>
+          <td style="${R}color:#475569;">${fmt(pCj)}</td>
+          <td style="${R}color:#1e40af;font-weight:700;">${fmt(pNet)}</td>
+          <td style="padding:8px 6px;"></td>
+        </tr>
+        <tr style="background:#f0fdf4;border-bottom:2px solid #e2e8f0;">
+          <td style="color:#166534;font-size:11px;font-weight:700;white-space:nowrap;padding:8px 10px;border-left:3px solid #86efac;background:#bbf7d044;">🪓 Sječa</td>
+          <td style="${R}color:${C.cTrupci};font-weight:700;">${fmt(r.actual.cTrupci)}</td>
+          <td style="${R}color:${C.celDuga};font-weight:700;">${fmt(dzA)}</td>
+          <td style="${R}color:${C.lTrupci};font-weight:700;">${fmt(r.actual.lTrupci)}</td>
+          <td style="${R}color:${C.ogrCijepani};font-weight:700;">${fmt(cjA)}</td>
+          <td style="${R}color:#059669;font-weight:800;">${fmt(r.actual.ukupno)}</td>
+          <td style="padding:8px 6px;">${realizacijaBadge(szStepen)}</td>
+        </tr>`;
+      });
+
+      const dzSub=sub.celDuga+sub.celCij+sub.skart, cjSub=sub.ogrDugi+sub.ogrCij+sub.gule;
+      const szSubStepen = sNeto>0 ? sub.ukupno/sNeto*100 : sub.stepen;
+      const SR = `text-align:right;padding:6px 10px;`;
+      html += `
+      <tr style="background:${gjBg};border-top:2px solid ${gjCol}40;font-weight:700;font-size:11px;">
+        <td rowspan="2" style="color:${gjCol};vertical-align:middle;padding:6px 4px;text-align:center;">Σ</td>
+        <td rowspan="2" style="color:${gjCol};font-weight:700;vertical-align:middle;padding:6px 10px;">${gj.split(' ')[0]}</td>
+        <td style="color:#1d4ed8;padding:6px 10px;border-left:3px solid #93c5fd;">Projekat</td>
+        <td style="${SR}color:#475569;">${fmt(sCT)}</td>
+        <td style="${SR}color:#475569;">${fmt(sDz)}</td>
+        <td style="${SR}color:#475569;">${fmt(sLT)}</td>
+        <td style="${SR}color:#475569;">${fmt(sCj)}</td>
+        <td style="${SR}color:#1e40af;">${fmt(sNeto)}</td><td></td>
+      </tr>
+      <tr style="background:${gjBg};border-bottom:3px solid ${gjCol}60;font-weight:700;font-size:11px;">
+        <td style="color:#166534;padding:6px 10px;border-left:3px solid #86efac;">Sječa</td>
+        <td style="${SR}color:${C.cTrupci};">${fmt(sub.actCT)}</td>
+        <td style="${SR}color:${C.celDuga};">${fmt(dzSub)}</td>
+        <td style="${SR}color:${C.lTrupci};">${fmt(sub.actLT)}</td>
+        <td style="${SR}color:${C.ogrCijepani};">${fmt(cjSub)}</td>
+        <td style="${SR}color:${gjCol};font-weight:800;">${fmt(sub.ukupno)}</td>
+        <td style="padding:6px 6px;">${realizacijaBadge(szSubStepen)}</td>
+      </tr>`;
+    });
+
+    const grandDz=grand.celDuga+grand.celCij+grand.skart, grandCj=grand.ogrDugi+grand.ogrCij+grand.gule;
+    const grandSzStepen = gNeto>0 ? grand.ukupno/gNeto*100 : grand.stepen;
+    html += `
+    <tr style="background:#1e293b;color:white;font-weight:700;">
+      <td rowspan="2" style="color:white;padding:6px 8px;text-align:center;vertical-align:middle;">Σ</td>
+      <td rowspan="2" style="color:white;padding:6px 8px;vertical-align:middle;">UKUPNO</td>
+      <td style="color:#93c5fd;padding:6px 8px;border-left:3px solid #60a5fa;">Projekat</td>
+      <td style="${WR}">${fmtN(gCT)}</td><td style="${WR}">${fmtN(gDz)}</td>
+      <td style="${WR}">${fmtN(gLT)}</td><td style="${WR}">${fmtN(gCj)}</td>
+      <td style="${WR}">${fmtN(gNeto)}</td><td></td>
+    </tr>
+    <tr style="background:#1e293b;color:white;font-weight:700;">
+      <td style="color:#86efac;padding:6px 8px;border-left:3px solid #4ade80;">Sječa</td>
+      <td style="${WR}">${fmtN(grand.actCT)}</td><td style="${WR}">${fmtN(grandDz)}</td>
+      <td style="${WR}">${fmtN(grand.actLT)}</td><td style="${WR}">${fmtN(grandCj)}</td>
+      <td style="${WR}color:#86efac;">${fmtN(grand.ukupno)}</td>
+      <td style="padding:6px 8px;">${realizacijaBadge(grandSzStepen)}</td>
+    </tr>
+    </tbody></table></div></div></div>`;
+
+    // Rekapitulacija
+    html += `<div class="section" style="margin-top:24px;">
+      <h2 style="font-size:15px;margin-bottom:12px;">📊 Rekapitulacija po GJ</h2>
+      <div style="overflow-x:auto;"><table class="monthly-table" style="width:100%;font-size:12px;">
+      <thead><tr>
+        <th style="text-align:left;">Gazdinska jedinica</th>
+        <th class="right">Projekat m³</th><th class="right">Sječa m³</th>
+        <th class="right">Stepen</th><th class="right">Ostalo m³</th>
+        <th>Realizacija</th>
+      </tr></thead><tbody>`;
+
+    GJ_LIST.forEach(gj=>{
+      const gjRows = rows.filter(r=>r.gj===gj);
+      if (!gjRows.length) return;
+      const sub = sumRows(gjRows);
+      // Projekat iz SZ za ovu GJ
+      const gjSzNeto = gjRows.reduce((t,r)=>{
+        const szk = r.slucajni ? normKey(r.odjel) : normKey(r.gj+' '+r.odjel);
+        const sz = szMap[szk];
+        return t + (sz ? sz.neto : r.neto);
+      }, 0);
+      const szStep = gjSzNeto>0 ? sub.ukupno/gjSzNeto*100 : sub.stepen;
+      const ost = Math.max(0, gjSzNeto - sub.ukupno);
+      html += `<tr>
+        <td><span style="display:inline-block;width:12px;height:12px;background:${GJ_COLOR[gj]};border-radius:2px;margin-right:6px;vertical-align:middle;"></span><strong>${gj}</strong></td>
+        <td class="right">${fmt(gjSzNeto)}</td>
+        <td class="right" style="color:#059669;font-weight:600;">${fmt(sub.ukupno)}</td>
+        <td class="right">${realizacijaBadge(szStep)}</td>
+        <td class="right" style="color:#6b7280;">${fmt(ost)}</td>
+        <td style="min-width:120px;">${bar2(szStep, GJ_COLOR[gj])}</td>
+      </tr>`;
+    });
+
+    html += `<tr style="background:#1e293b;color:white;font-weight:700;">
+      <td style="color:white;padding:6px 8px;">UKUPNO</td>
+      <td style="${WR}">${fmtN(gNeto)}</td>
+      <td style="${WR}color:#86efac;">${fmtN(grand.ukupno)}</td>
+      <td style="text-align:right;padding:6px 8px;">${realizacijaBadge(grandSzStepen)}</td>
+      <td style="${WR}color:#94a3b8;">${fmtN(Math.max(0,gNeto-grand.ukupno))}</td><td></td>
+    </tr>
+    </tbody></table></div></div>`;
+
+    view.innerHTML = html;
+  }
+
+  // ---- ODJEL DETAIL MODAL ----
+  function openOdjelModal(gj, odjel) {
+    const modal = document.getElementById('gp-odjel-modal');
+    if (!modal) return;
+    const rows = getModalRows(gj, odjel);
+    const planRow = _rows.find(r=>r.gj===gj&&r.odjel===odjel);
+
+    document.getElementById('gp-modal-title').innerHTML =
+      `${gjBadge(gj)} &nbsp; Odjel ${odjel} &nbsp; <span style="font-size:13px;font-weight:400;color:#6b7280;">${rows.length} primka zapisa</span>`;
+    document.getElementById('gp-modal-ukupno').textContent = planRow ? fmtN(planRow.actual.ukupno)+' m³ ostvareno' : '';
+
+    let tbody = '';
+    let totals = { cTrupci:0, celDuga:0, celCijepana:0, skart:0, lTrupci:0, ogrDugi:0, ogrCijepani:0, gule:0, ukupno:0 };
+    if (rows.length===0) {
+      tbody = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#4b5563;">Nema primka zapisa za ovaj odjel.</td></tr>';
+    } else {
+      rows.forEach(r=>{
+        Object.keys(totals).forEach(k=>{ totals[k]+=(r[k]||0); });
+        tbody += `<tr>
+          <td style="white-space:nowrap;font-size:11px;">${formatDay(r.datum)}</td>
+          <td style="font-size:11px;">${r.primac||'—'}</td>
+          <td style="font-size:11px;">${r.radiliste||'—'}</td>
+          <td class="right" style="color:${C.cTrupci};">${fmt(r.cTrupci)}</td>
+          <td class="right" style="color:${C.celDuga};">${fmt(r.celDuga)}</td>
+          <td class="right" style="color:${C.celCijepana};">${fmt(r.celCijepana)}</td>
+          <td class="right" style="color:${C.skart};">${fmt(r.skart)}</td>
+          <td class="right" style="color:${C.lTrupci};">${fmt(r.lTrupci)}</td>
+          <td class="right" style="color:${C.ogrDugi};">${fmt(r.ogrDugi)}</td>
+          <td class="right" style="color:${C.ogrCijepani};">${fmt(r.ogrCijepani)}</td>
+          <td class="right" style="color:${C.gule};">${fmt(r.gule)}</td>
+          <td class="right" style="font-weight:600;">${fmt(r.ukupno)}</td>
+        </tr>`;
+      });
+      tbody += `<tr style="background:#1e293b;color:white;font-weight:700;font-size:11px;">
+        <td colspan="3">UKUPNO (${rows.length} primki)</td>
+        <td class="right">${fmtN(totals.cTrupci)}</td>
+        <td class="right">${fmtN(totals.celDuga)}</td>
+        <td class="right">${fmtN(totals.celCijepana)}</td>
+        <td class="right">${fmtN(totals.skart)}</td>
+        <td class="right">${fmtN(totals.lTrupci)}</td>
+        <td class="right">${fmtN(totals.ogrDugi)}</td>
+        <td class="right">${fmtN(totals.ogrCijepani)}</td>
+        <td class="right">${fmtN(totals.gule)}</td>
+        <td class="right">${fmtN(totals.ukupno)}</td>
+      </tr>`;
+    }
+    document.getElementById('gp-modal-tbody').innerHTML = tbody;
+
+    // Store for CSV
+    modal._gjOdjel = { gj, odjel, rows };
+
+    modal.style.display = 'flex';
+    document.addEventListener('keydown', _closeModalOnEsc);
+  }
+
+  function closeOdjelModal() {
+    const modal = document.getElementById('gp-odjel-modal');
+    if (modal) modal.style.display = 'none';
+    document.removeEventListener('keydown', _closeModalOnEsc);
+  }
+
+  function _closeModalOnEsc(e) { if (e.key==='Escape') closeOdjelModal(); }
+
+  function exportModalCsv() {
+    const modal = document.getElementById('gp-odjel-modal');
+    if (!modal||!modal._gjOdjel) return;
+    const { gj, odjel, rows } = modal._gjOdjel;
+    // CSV-quote polja — imena primaca/radilišta mogu sadržavati zarez i pokvariti kolone
+    const cell = v => { const s = String(v==null?'':v); return /[",\n;]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+    const header = 'Datum,Primac,Radiliste,Trupci C,Cel.Duga,Cel.Cijepana,Skart,Trupci L,Ogr.Dugi,Ogr.Cijepani,Gule,Ukupno';
+    const body = rows.map(r=>[r.datum,r.primac,r.radiliste,r.cTrupci,r.celDuga,r.celCijepana,r.skart,r.lTrupci,r.ogrDugi,r.ogrCijepani,r.gule,r.ukupno].map(cell).join(',')).join('\n');
+    downloadCsv(header+'\n'+body, 'Odjel_'+odjel+'_primke.csv');
+  }
+
+  // ---- PRINT MODAL ----
+  function openPrintModal() {
+    const modal = document.getElementById('gp-print-modal');
+    if (!modal) return;
+    const rows = filteredRows();
+    const grand = sumRows(rows);
+    const grouped = GJ_LIST.map(gj=>({ gj, rows:rows.filter(r=>r.gj===gj) }));
+
+    let paperHtml = `
+    <div style="font-family:Arial,sans-serif;color:#1f2937;">
+      <div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #1e293b;padding-bottom:16px;">
+        <h1 style="font-size:20px;margin:0 0 6px;">GODIŠNJI PLAN SJEČE ${PLAN_YEAR}</h1>
+        <h2 style="font-size:15px;font-weight:400;margin:0 0 6px;">Pogon Bosanska Krupa</h2>
+        <span style="font-size:12px;color:#4b5563;">Datum štampe: ${new Date().toLocaleDateString('bs-BA')}</span>
+      </div>`;
+
+    grouped.forEach(({ gj, rows:gr })=>{
+      if (!gr.length) return;
+      const sub = sumRows(gr);
+      paperHtml += `
+      <h3 style="font-size:13px;color:${GJ_COLOR[gj]};margin:20px 0 8px;">${gj}</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:8px;">
+        <thead><tr style="background:#1e293b;color:white;">
+          <th style="padding:5px;text-align:left;">Rb.</th>
+          <th style="padding:5px;text-align:left;">Odjel</th>
+          <th style="padding:5px;">Bruto</th><th style="padding:5px;">Neto</th>
+          <th style="padding:5px;">Tr.Č</th><th style="padding:5px;">Cjep.Č</th>
+          <th style="padding:5px;">Tr.L</th><th style="padding:5px;">Cjep.L</th>
+          <th style="padding:5px;">Ostvr.</th><th style="padding:5px;">Stepen</th><th style="padding:5px;">Status</th>
+        </tr></thead><tbody>`;
+      gr.forEach((r,i)=>{
+        paperHtml += `<tr style="border-bottom:1px solid #e5e7eb;${i%2?'background:#f9fafb':''}">
+          <td style="padding:4px 5px;">${i+1}</td>
+          <td style="padding:4px 5px;font-weight:600;">${r.odjel}</td>
+          <td style="padding:4px 5px;text-align:right;">${fmtN(r.bruto)}</td>
+          <td style="padding:4px 5px;text-align:right;">${fmtN(r.neto)}</td>
+          <td style="padding:4px 5px;text-align:right;">${r.cTrupci?fmtN(r.cTrupci):'—'}</td>
+          <td style="padding:4px 5px;text-align:right;">${r.dzgo?fmtN(r.dzgo):'—'}</td>
+          <td style="padding:4px 5px;text-align:right;">${r.lTrupci?fmtN(r.lTrupci):'—'}</td>
+          <td style="padding:4px 5px;text-align:right;">${r.cijepano?fmtN(r.cijepano):'—'}</td>
+          <td style="padding:4px 5px;text-align:right;font-weight:600;">${fmtN(r.actual.ukupno)}</td>
+          <td style="padding:4px 5px;text-align:right;">${r.stepen.toFixed(1)}%</td>
+          <td style="padding:4px 5px;">${r.status==='posjeceno'?'✅ Posj.':r.status==='u-sjeci'?'🔄 U sj.':'📋 Plan.'}</td>
+        </tr>`;
+      });
+      paperHtml += `<tr style="background:#f0fdf4;font-weight:700;">
+        <td colspan="2" style="padding:4px 5px;">Σ ${gj}</td>
+        <td style="padding:4px 5px;text-align:right;">${fmtN(sub.bruto)}</td>
+        <td style="padding:4px 5px;text-align:right;">${fmtN(sub.neto)}</td>
+        <td style="padding:4px 5px;text-align:right;">${fmtN(sub.planCT)}</td>
+        <td style="padding:4px 5px;text-align:right;">${fmtN(sub.planDz)}</td>
+        <td style="padding:4px 5px;text-align:right;">${fmtN(sub.planLT)}</td>
+        <td style="padding:4px 5px;text-align:right;">${fmtN(sub.planCij)}</td>
+        <td style="padding:4px 5px;text-align:right;">${fmtN(sub.ukupno)}</td>
+        <td style="padding:4px 5px;text-align:right;">${sub.stepen.toFixed(1)}%</td>
+        <td></td>
+      </tr></tbody></table>`;
+    });
+
+    paperHtml += `
+      <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:12px;">
+        <tr style="background:#1e293b;color:white;font-weight:700;">
+          <td colspan="2" style="padding:6px 8px;">GRAND TOTAL</td>
+          <td style="padding:6px 8px;text-align:right;">${fmtN(grand.bruto)}</td>
+          <td style="padding:6px 8px;text-align:right;">${fmtN(grand.neto)}</td>
+          <td style="padding:6px 8px;text-align:right;">${fmtN(grand.planCT)}</td>
+          <td style="padding:6px 8px;text-align:right;">${fmtN(grand.planDz)}</td>
+          <td style="padding:6px 8px;text-align:right;">${fmtN(grand.planLT)}</td>
+          <td style="padding:6px 8px;text-align:right;">${fmtN(grand.planCij)}</td>
+          <td style="padding:6px 8px;text-align:right;">${fmtN(grand.ukupno)}</td>
+          <td style="padding:6px 8px;text-align:right;">${grand.stepen.toFixed(1)}%</td>
+          <td></td>
+        </tr>
+      </table>
+      <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:40px;font-size:11px;">
+        <div style="border-top:1px solid #9ca3af;padding-top:6px;">Izradio: ____________________</div>
+        <div style="border-top:1px solid #9ca3af;padding-top:6px;">Odobrio: ____________________</div>
+      </div>
+    </div>`;
+
+    document.getElementById('gp-print-paper').innerHTML = paperHtml;
+    modal.style.display = 'flex';
+  }
+
+  function closePrintModal() {
+    const modal = document.getElementById('gp-print-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function doPrint() { window.print(); }
+
+  // ---- CSV EXPORT ----
+  function gpExportCsv(tab) {
+    const rows = filteredRows();
+    let lines = [];
+    if (tab==='grupe'||tab==='pregled') {
+      lines.push(['GJ','Odjel','Bruto','Neto','Trupci C plan','Cjepano C plan','Trupci L plan','Cjepano L plan','Act.Trupci C','Act.Cel.D','Act.Cel.C','Act.Skart','Act.Trupci L','Act.Ogr.D','Act.Ogr.C','Act.Gule','Ostvareno','Stepen %','Status'].join(','));
+      rows.forEach(r=>lines.push([r.gj,r.odjel,r.bruto,r.neto,r.cTrupci,r.dzgo,r.lTrupci,r.cijepano,r.actual.cTrupci,r.actual.celDuga,r.actual.celCijepana,r.actual.skart,r.actual.lTrupci,r.actual.ogrDugi,r.actual.ogrCijepani,r.actual.gule,Math.round(r.actual.ukupno),r.stepen.toFixed(1),r.status].join(',')));
+    } else if (tab==='sortimenti') {
+      lines.push(['GJ','Odjel','Plan m3','Ostvareno m3','Stepen %','Trupci C %','Cjepano C %','Trupci L %','Cjepano L %'].join(','));
+      rows.forEach(r=>lines.push([r.gj,r.odjel,r.neto,Math.round(r.actual.ukupno),r.stepen.toFixed(1),(r.cTrupci>0?r.actual.cTrupci/r.cTrupci*100:0).toFixed(1),(r.dzgo>0?dzgoAct(r.actual)/r.dzgo*100:0).toFixed(1),(r.lTrupci>0?r.actual.lTrupci/r.lTrupci*100:0).toFixed(1),(r.cijepano>0?cijAct(r.actual)/r.cijepano*100:0).toFixed(1)].join(',')));
+    } else {
+      lines.push(['GJ','Odjel','Proj.TrC','Proj.CjC','Proj.TrL','Proj.CjL','Projekat m3','Sj.TrC','Sj.CjC','Sj.TrL','Sj.CjL','Sjeceno m3','Stepen %'].join(','));
+      rows.forEach(r=>lines.push([r.gj,r.odjel,r.cTrupci,r.dzgo,r.lTrupci,r.cijepano,r.neto,r.actual.cTrupci,dzgoAct(r.actual),r.actual.lTrupci,cijAct(r.actual),Math.round(r.actual.ukupno),r.stepen.toFixed(1)].join(',')));
+    }
+    downloadCsv('﻿'+lines.join('\n'), 'GodišnjiPlan_'+tab+'.csv');
+  }
+
+  function downloadCsv(content, filename) {
+    const blob = new Blob([content], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=filename; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  }
+
+  // ---- FILTER/SORT PUBLIC ----
+  function filterGpGj(gj) {
+    _gjFilter = gj;
+    document.querySelectorAll('[data-gj-btn]').forEach(b=>{
+      b.style.opacity = b.dataset.gjBtn===gj ? '1' : '0.5';
+      b.style.fontWeight = b.dataset.gjBtn===gj ? '700' : '400';
+    });
+    if (_loaded) renderActiveTab();
+  }
+
+  function filterGpStatus(st) {
+    _stFilter = st;
+    document.querySelectorAll('[data-st-btn]').forEach(b=>{
+      b.style.fontWeight = b.dataset.stBtn===st ? '700' : '400';
+      b.style.boxShadow  = b.dataset.stBtn===st ? 'inset 0 -2px 0 currentColor' : 'none';
+    });
+    if (_loaded) renderActiveTab();
+  }
+
+  function filterGpSearch(val) {
+    _search = val;
+    if (_loaded) renderActiveTab();
+  }
+
+  function filterGpIzvodjac(val) {
+    _izvFilter = val;
+    if (_loaded) renderActiveTab();
+  }
+
+  // Popuni <select> izvođača jedinstvenom listom iz svih odjela (poziva se
+  // poslije svakog učitavanja/osvježavanja podataka — lista izvođača se
+  // može promijeniti tokom godine).
+  function refreshIzvodjaciFilter() {
+    const sel = document.getElementById('gp-filter-izvodjac');
+    if (!sel) return;
+    const svi = new Set();
+    _rows.forEach(r => (r.izvodjaci || []).forEach(iz => svi.add(iz)));
+    const sortirano = [...svi].sort((a, b) => a.localeCompare(b, 'bs'));
+    const prethodni = sel.value;
+    sel.innerHTML = '<option value="sve">Svi izvođači</option>' +
+      sortirano.map(iz => `<option value="${iz.replace(/"/g, '&quot;')}">${iz}</option>`).join('');
+    if (prethodni && (prethodni === 'sve' || svi.has(prethodni))) sel.value = prethodni;
+    else _izvFilter = 'sve';
+  }
+
+  function gpSort(tab, col) {
+    if (_sort[tab].col===col) { _sort[tab].asc = !_sort[tab].asc; }
+    else { _sort[tab] = { col, asc: col==='stepen'?false:true }; }
+    if (_loaded) renderActiveTab();
+  }
+
+  function gpSetOverride(gj, odjel, val) {
+    if (val==='auto') localStorage.removeItem('gp|'+gj+'|'+odjel);
+    else localStorage.setItem('gp|'+gj+'|'+odjel, val);
+    _rows = _rows.map(r=>{
+      if (r.gj!==gj||r.odjel!==odjel) return r;
+      const ovr = val==='auto'?'auto':val;
+      return { ...r, override:ovr, status:ovr==='auto'?deriveStatus(r.stepen):ovr };
+    });
+    renderActiveTab();
+  }
+
+  // ---- PUBLIC API ----
+  window.loadGodisnjiPlan   = loadGodisnjiPlan;
+  window.switchGpTab        = switchGpTab;
+  window.filterGpGj         = filterGpGj;
+  window.filterGpStatus     = filterGpStatus;
+  window.filterGpSearch     = filterGpSearch;
+  window.filterGpIzvodjac   = filterGpIzvodjac;
+  window.gpSort             = gpSort;
+  window.gpSetOverride      = gpSetOverride;
+  window.gpOpenOdjelModal   = openOdjelModal;
+  window.closeGpOdjelModal  = closeOdjelModal;
+  window.gpExportModalCsv   = exportModalCsv;
+  window.openGpPrintModal   = openPrintModal;
+  window.closeGpPrintModal  = closePrintModal;
+  window.gpDoPrint          = doPrint;
+  window.gpExportCsv        = gpExportCsv;
+})();

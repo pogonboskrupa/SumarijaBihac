@@ -1,0 +1,462 @@
+/* ============================================ */
+/* 🎨 OPTIMIZED LOGIN SCREEN */
+/* Desktop & Mobile Responsive Design */
+/* ============================================ */
+
+/* Body background sa gradientom */
+body.login-active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+    min-height: 100vh;
+    min-height: 100svh; /* small viewport: ne mijenja se kad se otvori tastatura, pa se okvir ne pomjera */
+}
+
+/* 🔧 KRITIČNO: Osiguraj da login screen nestane kada je hidden */
+#login-screen.hidden {
+    display: none !important;
+}
+
+.login-container.hidden {
+    display: none !important;
+}
+
+/* Login container - savršeno centrirano */
+.login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100svh; /* small viewport: ne mijenja se kad se otvori tastatura, pa se okvir ne pomjera */
+    padding: 20px;
+    position: relative;
+    overflow: hidden; /* Spriječi horizontalno skrolanje od dekorativnih krugova */
+    box-sizing: border-box;
+}
+
+/* Decorative background circles */
+.login-container::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 300px;
+    height: 300px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    z-index: 0;
+}
+
+.login-container::after {
+    content: '';
+    position: absolute;
+    bottom: -100px;
+    left: -100px;
+    width: 400px;
+    height: 400px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    z-index: 0;
+}
+
+/* Login box - desktop optimized */
+.login-box {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+    padding: 40px 32px;
+    max-width: 380px;
+    width: calc(100% - 40px);
+    position: relative;
+    z-index: 1;
+    animation: fadeInUp 0.6s ease;
+    box-sizing: border-box;
+    margin: auto;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Logo container */
+.login-box .logo-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.login-box .logo-container img {
+    width: 100px;
+    height: auto;
+    margin-bottom: 12px;
+    transition: transform 0.3s ease;
+}
+
+.login-box .logo-container img:hover {
+    transform: scale(1.05);
+}
+
+.login-box .text-outline-firma {
+    font-size: 11px;
+    margin-bottom: 2px;
+    letter-spacing: 1px;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Override main.css !important green color + yellow text-shadow */
+.login-box .logo-container .text-outline-firma {
+    color: #6b7280 !important;
+    text-shadow: none !important;
+}
+
+.login-box .company-subtitle {
+    font-size: 10px;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 0;
+    letter-spacing: 0.5px;
+}
+
+/* Vizuelni separator između brandinga i forme */
+.login-box .logo-container::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 3px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 2px;
+    margin: 16px auto 0;
+}
+
+/* Headings */
+.login-box h2 {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.login-box > p {
+    text-align: center;
+    color: #6b7280;
+    margin-bottom: 24px;
+    font-size: 13px;
+}
+
+/* Form groups */
+.form-group {
+    margin-bottom: 24px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 14px 18px;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: #f9fafb;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group input::placeholder {
+    color: #6b7280;
+}
+
+/* Submit button */
+.login-box .btn {
+    width: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.login-box .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+}
+
+.login-box .btn:active {
+    transform: translateY(0);
+}
+
+.login-box .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Error message */
+.login-box .error {
+    background: #fee2e2;
+    border: 2px solid #fecaca;
+    color: #991b1b;
+    padding: 14px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    font-weight: 500;
+    animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* ============================================ */
+/* TABLET RESPONSIVE (768px - 1024px) */
+/* ============================================ */
+@media (min-width: 768px) and (max-width: 1024px) {
+    .login-box {
+        max-width: 400px;
+        padding: 44px 36px;
+    }
+
+    .login-box .logo-container img {
+        width: 90px;
+    }
+
+    .login-box h2 {
+        font-size: 26px;
+    }
+}
+
+/* ============================================ */
+/* DESKTOP LARGE (> 1024px) */
+/* ============================================ */
+@media (min-width: 1025px) {
+    .login-container {
+        padding: 40px;
+    }
+
+    .login-box {
+        max-width: 420px;
+        padding: 48px 40px;
+    }
+
+    .login-box .logo-container img {
+        width: 100px;
+    }
+
+    .login-box h2 {
+        font-size: 28px;
+    }
+
+    .login-box > p {
+        font-size: 13px;
+    }
+
+    .form-group input {
+        font-size: 16px;
+        padding: 14px 18px;
+    }
+
+    .login-box .btn {
+        padding: 16px;
+        font-size: 16px;
+        margin-top: 4px;
+    }
+}
+
+/* ============================================ */
+/* MOBILE RESPONSIVE (< 768px) */
+/* ============================================ */
+@media (max-width: 767px) {
+    .login-container {
+        padding: 16px;
+        min-height: 100vh;
+        min-height: 100svh; /* small viewport: ne mijenja se kad se otvori tastatura, pa se okvir ne pomjera */
+        align-items: center;
+    }
+
+    .login-box {
+        padding: 32px 24px;
+        border-radius: 16px;
+        max-width: 340px;
+        width: calc(100% - 32px);
+    }
+
+    .login-box .logo-container img {
+        width: 72px;
+    }
+
+    .login-box .text-outline-firma {
+        font-size: 10px;
+    }
+
+    .login-box .company-subtitle {
+        font-size: 9px;
+    }
+
+    .login-box h2 {
+        font-size: 22px;
+        margin-bottom: 4px;
+    }
+
+    .login-box > p {
+        font-size: 12px;
+        margin-bottom: 18px;
+    }
+
+    .form-group {
+        margin-bottom: 18px;
+    }
+
+    .form-group label {
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    .form-group input {
+        padding: 12px 14px;
+        font-size: 16px; /* 16px sprječava zoom na iOS */
+    }
+
+    .login-box .btn {
+        padding: 14px;
+        font-size: 15px;
+    }
+
+    /* Hide decorative circles on mobile */
+    .login-container::before,
+    .login-container::after {
+        display: none;
+    }
+
+    .login-box .logo-container::after {
+        width: 36px;
+        height: 2px;
+        margin: 12px auto 0;
+    }
+}
+
+/* Extra small devices (< 480px) */
+@media (max-width: 480px) {
+    .login-container {
+        padding: 12px;
+    }
+
+    .login-box {
+        padding: 28px 20px;
+        width: calc(100% - 24px);
+        max-width: 320px;
+    }
+
+    .login-box .logo-container {
+        margin-bottom: 16px;
+    }
+
+    .login-box .logo-container img {
+        width: 60px;
+        margin-bottom: 8px;
+    }
+
+    .login-box .logo-container::after {
+        width: 32px;
+        height: 2px;
+        margin: 10px auto 0;
+    }
+
+    .login-box .text-outline-firma {
+        font-size: 10px;
+    }
+
+    .login-box .company-subtitle {
+        font-size: 9px;
+    }
+
+    .login-box h2 {
+        font-size: 20px;
+    }
+
+    .login-box > p {
+        font-size: 11px;
+        margin-bottom: 14px;
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .login-box .btn {
+        padding: 12px;
+        font-size: 14px;
+    }
+}
+
+/* ============================================ */
+/* DARK MODE SUPPORT (optional) */
+/* ============================================ */
+
+/* Stabilan centar tokom unosa: okvir se centrira sa margin:auto (kad je tastatura otvorena i
+   sadržaj viši od ekrana, skrola se umjesto da se centar "preskoči"), a container ne reaguje
+   na promjenu visine viewporta. */
+.login-container { align-items: stretch; }
+.login-container > .login-box { margin: auto; position: relative; z-index: 1; }
+body.login-active { overscroll-behavior-y: none; }
+
+/* ===== Redizajn login ekrana: zeleni brand-header sa velikim logom ===== */
+.login-box { padding: 0; overflow: hidden; max-width: 420px; border-radius: 24px; box-shadow: 0 30px 80px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.login-box .logo-container { margin: 0; padding: 30px 24px 26px; background: radial-gradient(120% 140% at 50% 0%, #10b981 0%, #047857 45%, #064e3b 100%); position: relative; }
+.login-box .logo-container::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 14px); pointer-events: none; }
+.login-box .logo-container::after { display: none; }
+.login-box .logo-container img { position: relative; width: 210px; max-width: 78%; height: auto; margin: 0 auto 14px; display: block; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35)); }
+.login-box .logo-container .text-outline-firma { position: relative; color: #ecfdf5 !important; text-shadow: none !important; font-size: 12px; letter-spacing: 1.6px; margin: 0 0 3px; }
+.login-box .company-subtitle { position: relative; color: #a7f3d0; font-size: 11px; letter-spacing: 2.4px; font-weight: 600; margin: 0; }
+.login-body { padding: 26px 32px 32px; }
+.login-box h2 { font-size: 28px; margin-bottom: 4px; background: linear-gradient(135deg, #047857 0%, #065f46 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.login-box > p, .login-body > p { text-align: center; color: #6b7280; margin: 0 0 22px; font-size: 13.5px; }
+.form-group { margin-bottom: 18px; }
+.form-group input:focus { border-color: #059669; box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.15); }
+.login-box .btn { background: linear-gradient(135deg, #059669 0%, #047857 100%); box-shadow: 0 6px 18px rgba(4, 120, 87, 0.4); margin-top: 6px; }
+.login-box .btn:hover { box-shadow: 0 10px 26px rgba(4, 120, 87, 0.5); }
+
+@media (max-width: 767px) {
+    .login-box { max-width: 380px; width: calc(100% - 28px); border-radius: 20px; padding: 0; }
+    .login-box .logo-container { padding: 26px 20px 22px; }
+    .login-box .logo-container img { width: 190px; }
+    .login-body { padding: 22px 22px 26px; }
+}
+@media (max-width: 380px) {
+    .login-box .logo-container img { width: 165px; }
+    .login-body { padding: 18px 18px 22px; }
+}
+.login-box .logo-container img { border-radius: 16px; border: 3px solid rgba(255, 255, 255, 0.9); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3); filter: none; background: #f4f1e6; }

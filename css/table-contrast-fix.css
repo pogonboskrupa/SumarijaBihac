@@ -1,0 +1,1313 @@
+/* ============================================ */
+/* 📊 TABLE CONTRAST FIX */
+/* Bolja čitljivost tabela - tamnije boje */
+/* ============================================ */
+
+/* Fix za LIŠĆARI kolonu - tamnije žuto/narandžasto */
+.col-group-liscari {
+    background: linear-gradient(to bottom, #fbbf24 0%, #f59e0b 100%) !important;
+    border-left: 2px solid #d97706 !important;
+    border-right: 2px solid #d97706 !important;
+    color: #78350f !important;
+    font-weight: 600 !important;
+}
+
+/* Fix za žute highlight redove - tamnija žuta */
+.worker-table tbody tr.mjesec-9 {
+    background: linear-gradient(to right, #fde047 0%, #fbbf24 100%) !important;
+}
+
+.worker-table tbody tr.mjesec-9:hover {
+    background: linear-gradient(to right, #fbbf24 0%, #f59e0b 100%) !important;
+    box-shadow: inset 4px 0 0 #d97706 !important;
+}
+
+/* Fix za narandžaste redove - dublji ton */
+.worker-table tbody tr.mjesec-10 {
+    background: linear-gradient(to right, #fb923c 0%, #f97316 100%) !important;
+}
+
+.worker-table tbody tr.mjesec-10:hover {
+    background: linear-gradient(to right, #f97316 0%, #ea580c 100%) !important;
+    box-shadow: inset 4px 0 0 #c2410c !important;
+}
+
+/* Fix za opće žute background-e */
+[style*="background: #fef3c7"],
+[style*="background: #fef9c3"],
+[style*="background: #fed7aa"] {
+    background: #fde047 !important; /* Tamnija žuta */
+    color: #78350f !important; /* Tamni tekst */
+}
+
+/* Fix za light yellow gradients */
+[style*="linear-gradient(135deg, #fffbeb"],
+[style*="linear-gradient(135deg, #fef3c7"] {
+    background: linear-gradient(135deg, #fde047 0%, #fbbf24 100%) !important;
+}
+
+/* Override inline styles sa světlim bojama */
+.month-row[style*="#fef3c7"],
+.data-row[style*="#fef3c7"],
+td[style*="background: #fef3c7"] {
+    background: #fde047 !important;
+    color: #78350f !important;
+}
+
+/* Općenito pravilo za sve svijetle žute ćelije */
+td[style*="background-color: rgb(254, 243, 199)"],
+td[style*="background-color: rgb(254, 249, 195)"],
+td[style*="background-color: rgb(254, 215, 170)"],
+td[style*="background: linear-gradient"][style*="254, 243"] {
+    background: #fbbf24 !important;
+    color: #78350f !important;
+    font-weight: 500 !important;
+}
+
+/* Fix za izvještaje tabele */
+.izvjestaj-table td[style*="background"],
+.izvjestaj-table th[style*="background"] {
+    /* Osiguraj dovoljnu kontrast */
+}
+
+.izvjestaj-table td[style*="#fef3c7"],
+.izvjestaj-table td[style*="#fef9c3"],
+.izvjestaj-table td[style*="#fed7aa"] {
+    background: #fbbf24 !important;
+    color: #78350f !important;
+}
+
+/* Specifično za mjesečni izvještaj tabele */
+#primac-mjesecni-content table td,
+#otpremac-mjesecni-content table td {
+    min-width: 80px;
+}
+
+#primac-mjesecni-content table td[style*="background"],
+#otpremac-mjesecni-content table td[style*="background"] {
+    font-weight: 500;
+}
+
+/* Svijetle žute ćelije -> Tamnije */
+#primac-mjesecni-content table td[style*="#fef3c7"],
+#primac-mjesecni-content table td[style*="#fef9c3"],
+#primac-mjesecni-content table td[style*="#fed7aa"],
+#otpremac-mjesecni-content table td[style*="#fef3c7"],
+#otpremac-mjesecni-content table td[style*="#fef9c3"],
+#otpremac-mjesecni-content table td[style*="#fed7aa"] {
+    background: #fbbf24 !important;
+    color: #78350f !important;
+    font-weight: 600 !important;
+}
+
+/* Badge warning - tamniji */
+.badge.warning {
+    background: #fbbf24 !important;
+    color: #78350f !important;
+}
+
+/* Cache status warning - tamniji */
+.cache-status.cache-loading {
+    background: #fbbf24 !important;
+    color: #78350f !important;
+}
+
+/* Ensure text contrast na svim svijetlim background-ima */
+*[style*="background: #fef"],
+*[style*="background: #ffc"],
+*[style*="background: #fed"],
+*[style*="background-color: rgb(254, 2"] {
+    color: #78350f !important;
+}
+
+/* ============================================ */
+/* 🔧 NOVI IZVJEŠTAJI - Profesionalne tabele */
+/* Konzistentne boje sa pravilnim borderima */
+/* ============================================ */
+
+.izvjestaji-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 2px solid #e5e7eb;
+    font-size: 14px;
+}
+
+.izvjestaji-table thead th {
+    padding: 12px;
+    text-align: right;
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.izvjestaji-table thead th:first-child {
+    text-align: left;
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    background: #374151 !important;
+    color: white !important;
+    border-right: 2px solid #1f2937;
+}
+
+.izvjestaji-table tbody td {
+    padding: 12px;
+    text-align: right;
+    font-weight: 600;
+    border: 1px solid #e5e7eb;
+}
+
+.izvjestaji-table tbody td:first-child {
+    text-align: left;
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: white !important;
+    color: #1f2937 !important;
+    font-weight: 700;
+    border-right: 2px solid #d1d5db;
+}
+
+.izvjestaji-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.izvjestaji-table tbody tr:hover td:first-child {
+    background: #f3f4f6 !important;
+}
+
+/* ============================================ */
+/* 📊 GLOBAL TYPOGRAPHY FOR NUMERIC DATA */
+/* Inter font za SVE brojeve na SVIM panelima */
+/* ============================================ */
+
+/* Base numeric typography - INTER for ALL tables */
+table td {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-weight: 600 !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* Numeric cells - INTER BOLD for all right-aligned cells */
+table td[style*="text-align: right"],
+table td.number,
+table td.right,
+.izvjestaji-table tbody td,
+.izvjestaj-table tbody td,
+.worker-table tbody td,
+#odjeli-table-body td,
+#stanje-table-body td,
+#realizacija-table-body td,
+#primke-table-body td,
+#otpreme-table-body td,
+#kupci-godisnji-tbody td,
+#kupci-mjesecni-tbody td,
+#primaci-body td,
+#otpremaci-body td,
+#primaci-daily-body td,
+#primaci-radilista-body td,
+#primaci-izvodjaci-body td,
+.monthly-table tbody td,
+.kupci-table tbody td {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: #0f172a;
+    font-feature-settings: 'tnum' 1 !important;
+    -webkit-font-smoothing: antialiased !important;
+}
+
+/* ============================================================
+   NAPOMENA O BOJI TEKSTA U TABELAMA (bitno pri dodavanju stilova)
+   ============================================================
+   Blanket pravila iznad NAMJERNO nemaju "!important" na `color`.
+   Ranije su ga imala i to je bio uzrok stalno ponavljajuće greške:
+   svaki put kad bi se negdje dodao red sa TAMNOM pozadinom (npr. UKUPNO
+   red), tekst bi tiho ostao skoro crn na skoro crnoj podlozi jer bi
+   blanket pravilo pregazilo i inline `color: white`. Bez "!important"
+   inline boja prirodno pobjeđuje, a ćelije koje svoju boju NEMAJU i
+   dalje dobijaju #0f172a — dakle izgled ostaje isti kao prije.
+
+   Jedini slučaj koji je taj "!important" stvarno spašavao bile su
+   izblijedjele nule (`color: #d1d5db`, ~10 mjesta u js/app.js) — one
+   su na bijeloj podlozi jedva vidljive, pa im se tamna boja vraća ovdje,
+   ciljano, umjesto da se forsira na CIJELU tabelu. */
+table td[style*="color: #d1d5db"],
+table td[style*="color:#d1d5db"] {
+    color: #0f172a !important;
+}
+
+/* Data values with green color - BOLD */
+table td.green,
+table td.number.green,
+td[style*="color: #059669"],
+td[style*="color: #047857"],
+td[style*="color: #10b981"] {
+    font-weight: 800 !important;
+    color: #047857 !important;
+}
+
+/* Data values with blue color - BOLD */
+table td.blue,
+table td.number.blue,
+td[style*="color: #2563eb"],
+td[style*="color: #3b82f6"],
+td[style*="color: #1d4ed8"] {
+    font-weight: 800 !important;
+    color: #1d4ed8 !important;
+}
+
+/* Data values with red color - BOLD */
+table td.red,
+table td.number.red,
+td[style*="color: #dc2626"],
+td[style*="color: #ef4444"] {
+    font-weight: 800 !important;
+    color: #b91c1c !important;
+}
+
+/* UKUPNO/Total rows - MAXIMUM emphasis
+   #dashboard-table (Šumarija tab, Mjesečni pregled) je izuzet — njegov UKUPNO
+   red je u posebnom <tfoot> (već pokriven pravilom "table tfoot td" ispod),
+   pa je zadnji red u <tbody> obični mjesec (Decembar), ne total — bez izuzetka
+   bi se Decembar uvijek boldirao bez obzira na to koji je mjesec stvarno tekući. */
+/* Boldira se SAMO red koji je stvarno zbir (UKUPNO/REKAPITULACIJA…): njega označava
+   js/utils.js (markTotalRows → klasa .sum-row). Ranije je pravilo pogađalo svaki
+   :last-child pa se zadnji odjel/radnik/mjesec u spisku boldirao kao da je total. */
+tbody tr.sum-row td,
+table tfoot td,
+.ukupno-row td,
+.total-row td {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 15px !important;
+}
+
+/* Izvještaj po odjelima (Izvještaji tab) — tabele "Sječa/Otprema po radniku"
+   i "Otprema po kupcu" (.kupci-table) nemaju UKUPNO red, pa je zadnji red
+   uvijek samo posljednji radnik/kupac na listi — generičko pravilo iznad ga
+   je boldiralo JAČE (900/15px) nego sve ostale redove (koji dobiju 700/14px
+   preko ".kupci-table tbody td" pravila), pa je zadnji red izgledao vidljivo
+   drugačije. Ovdje ga svodimo na ISTU vrijednost (700/14px) kao ostali redovi
+   — svi redovi jednako boldirani, bez vizuelne razlike. UKUPNO red u tabeli
+   sortimenata (klasa .totals-row) ostaje netaknut, van dometa ovog pravila. */
+#izvjestaji-po-odjelima-prikaz table.kupci-table tbody tr:last-child:not(.totals-row) td {
+    font-weight: 700 !important;
+    font-size: 14px !important;
+}
+
+/* CRITICAL: Dark background rows MUST have white text */
+/* Override the color: #0f172a from above */
+tr[style*="background: #047857"] td,
+tr[style*="background: #065f46"] td,
+tr[style*="background: #059669"] td,
+tr[style*="background: #0369a1"] td,
+tr[style*="background: #0891b2"] td,
+tr[style*="background: #0e7490"] td,
+tr[style*="background: linear-gradient"][style*="#047857"] td,
+tr[style*="background: linear-gradient"][style*="#065f46"] td,
+tr[style*="background: linear-gradient"][style*="#0369a1"] td {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+    font-weight: 700 !important;
+}
+
+/* White text on dark backgrounds */
+td[style*="color: white"],
+td[style*="color: #ffffff"],
+th[style*="color: white"],
+th[style*="color: #ffffff"] {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 700 !important;
+}
+
+/* Dashboard cards - numeric values - INTER */
+.stat-value,
+.card-value,
+.metric-value {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 800 !important;
+    -webkit-font-smoothing: antialiased !important;
+}
+
+
+/* Primaci and Otpremaci detail tables - INTER */
+#primac-detail-content table td,
+#otpremac-detail-content table td,
+#primac-mjesecni-content table td,
+#otpremac-mjesecni-content table td,
+#primac-odjeli-content table td,
+#otpremac-odjeli-content table td {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: #0f172a;
+}
+
+/* Sortimenti tables - INTER */
+#sortimenti-content table td,
+#primke-content table td,
+#otpreme-content table td {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: #0f172a;
+}
+
+/* Poslovođa panel tables - INTER */
+#poslovodja-stanje-content table td,
+#poslovodja-realizacija-content table td,
+#poslovodja-zadnjih5-content table td,
+#poslovodja-suma-content table td {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: #0f172a;
+}
+
+/* Radnici panel tables - INTER */
+#radnici-content table td,
+#primac-personal-content table td,
+#otpremac-personal-content table td {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: #0f172a;
+}
+
+/* Stanje Zaliha tables - INTER */
+.stanje-zaliha-card table td {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    color: #0f172a;
+}
+
+/* Kupci tables - INTER */
+#kupci-content table td {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    color: #0f172a;
+}
+
+/* Mobile: all numeric cells BIGGER and BOLDER */
+@media (max-width: 768px) {
+    table td,
+    table td[style*="text-align: right"] {
+        font-size: 15px !important;
+        font-weight: 800 !important;
+    }
+
+    tbody tr.sum-row td,
+    .ukupno-row td {
+        font-size: 16px !important;
+        font-weight: 900 !important;
+    }
+}
+
+/* TABLE CONTRAST FIX - Loaded successfully */
+/* Svijetle žute boje zamijenjene tamnijim + TRUPCI fix za sve tabele + Typography improvements */
+
+/* ============================================ */
+/* 🎯 WHITE TEXT ON DARK BACKGROUNDS */
+/* Fix za tamne pozadine - bijeli tekst */
+/* ============================================ */
+
+/* Expert table header - force white text */
+.expert-table thead th,
+.expert-table thead th * {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Expert table footer - force white text (UKUPNO/REKAPITULACIJA rows) */
+.expert-table tfoot td,
+.expert-table tfoot td *,
+#otpremaci-po-kupcima-footer td,
+#otpremaci-po-kupcima-footer td * {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+    font-weight: 700 !important;
+}
+
+/* Kupci table UKUPNO row (last row in tbody) */
+.kupci-table tbody tr:last-child[style*="background: #047857"] td,
+.kupci-table tbody tr:last-child[style*="background: linear-gradient"] td,
+#kupci-godisnji-body tr:last-child td,
+#kupci-mjesecni-body tr:last-child td {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* All dark teal/green backgrounds - white text */
+*[style*="background: #0891b2"] td,
+*[style*="background: #0e7490"] td,
+*[style*="background: #047857"] td,
+*[style*="background: #065f46"] td,
+*[style*="background: #064e3b"] td,
+*[style*="background: #059669"] td,
+*[style*="background: linear-gradient"][style*="#047857"] td,
+*[style*="background: linear-gradient"][style*="#065f46"] td,
+*[style*="background: linear-gradient"][style*="#0891b2"] td,
+tr[style*="background: #047857"] td,
+tr[style*="background: #065f46"] td,
+tr[style*="background: #0891b2"] td,
+tr[style*="background: #0e7490"] td,
+tr[style*="background: linear-gradient"][style*="#047857"] td,
+tr[style*="background: linear-gradient"][style*="#065f46"] td {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Kupci table - totals row. Pozadina je zapravo SVIJETLO zelen gradijent
+   (main.css .kupci-table .totals-row), pa je bijeli tekst gotovo nečitljiv —
+   crna slova s bijelim outlineom čitljiva su bez obzira na svjetlinu pozadine. */
+.kupci-table .totals-row td,
+.kupci-table tfoot td,
+.kupci-table tbody tr:last-child[style*="background: #047857"] td,
+.kupci-table tbody tr:last-child[style*="background: linear-gradient"] td {
+    color: #000000 !important;
+    text-shadow:
+        -1px -1px 0 #fff, 1px -1px 0 #fff,
+        -1px  1px 0 #fff, 1px  1px 0 #fff,
+        0 0 3px #fff !important;
+}
+
+/* Monthly table dark rows */
+.monthly-table tfoot td,
+.monthly-table .ukupno-row td,
+.monthly-table tbody tr[style*="background: #047857"] td,
+.monthly-table tbody tr[style*="background: #065f46"] td,
+.monthly-table tbody tr[style*="background:#3F4752"] td,
+.monthly-table tbody tr[style*="background:#2F343A"] td,
+.monthly-table tbody tr[style*="background:linear-gradient(135deg,#0891b2"] td,
+.monthly-table tbody tr[style*="background:#164e63"] td,
+.monthly-table tbody tr[style*="background:#1e293b"] td {
+    color: white !important;
+}
+
+/* GP annual plan — dark header rows */
+tr[style*="background:#1e3a5f"] th {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25) !important;
+}
+th[style*="background:#1e3399"],
+th[style*="background:#3b1080"],
+th[style*="background:#14532d"],
+th[style*="background:#7c2d12"] {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25) !important;
+}
+
+/* Dark blue backgrounds (#1e40af, #1d4ed8, #2563eb) - white text */
+*[style*="background: #1e40af"] td,
+*[style*="background: #1d4ed8"] td,
+*[style*="background: #2563eb"] td,
+tr[style*="background: #1e40af"] td,
+tr[style*="background: #1d4ed8"] td {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Red/Maroon backgrounds - white text */
+*[style*="background: #dc2626"] td,
+*[style*="background: #b91c1c"] td,
+*[style*="background: #991b1b"] td,
+tr[style*="background: #dc2626"] td,
+tr[style*="background: #b91c1c"] td {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Professional monthly table UKUPNO rows */
+.professional-monthly-table tfoot td,
+.professional-monthly-table tbody tr.ukupno-row td {
+    color: white !important;
+}
+
+/* Stanje zaliha dark backgrounds */
+.stanje-zaliha-card table tfoot td,
+.stanje-zaliha-card table tr[style*="background: #047857"] td,
+.stanje-zaliha-card table tr[style*="background: #065f46"] td {
+    color: white !important;
+}
+
+/* Generic: any element with dark background should have white text */
+th[style*="background: #047857"],
+th[style*="background: #065f46"],
+th[style*="background: #0891b2"],
+th[style*="background: #0e7490"],
+th[style*="background: #1e40af"],
+th[style*="background: #1d4ed8"],
+td[style*="background: #047857"],
+td[style*="background: #065f46"],
+td[style*="background: #0891b2"],
+td[style*="background: #0e7490"],
+td[style*="background: #1e40af"],
+td[style*="background: #1d4ed8"] {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Rows with inline dark background gradient - white text */
+tr[style*="linear-gradient"][style*="#047857"] td,
+tr[style*="linear-gradient"][style*="#065f46"] td,
+tr[style*="linear-gradient"][style*="#0891b2"] td,
+tr[style*="linear-gradient"][style*="#0e7490"] td,
+tr[style*="linear-gradient"][style*="#0369a1"] td {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+}
+
+/* Force override for ANY td with dark color inline style */
+tr[style*="background: #047857"] td,
+tr[style*="background: #065f46"] td,
+tr[style*="background: #0369a1"] td,
+tr[style*="background: #0891b2"] td {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Header row with dark background - white text */
+tr[style*="background: #047857"] th,
+tr[style*="background: #065f46"] th,
+tr[style*="background: #0369a1"] th,
+tr[style*="background: #0891b2"] th {
+    color: white !important;
+}
+
+/* Kupci godisnji/mjesecni tables - ensure white text on dark rows */
+#kupci-godisnji-body tr[style*="background: #047857"] td,
+#kupci-godisnji-body tr[style*="background: linear-gradient"] td,
+#kupci-mjesecni-body tr[style*="background: #047857"] td,
+#kupci-mjesecni-body tr[style*="background: linear-gradient"] td,
+#kupci-godisnji-body tr:last-child td,
+#kupci-mjesecni-body tr:last-child td {
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Worker table totals-row dark mode */
+/* Override ALL table tds that have color: white inline style to ensure it stays white */
+td[style*="color: white"],
+th[style*="color: white"] {
+    color: white !important;
+}
+
+
+/* ============================================ */
+/* Odjeli procentualna tabela - poništi bold na zadnjem redu */
+.odjeli-pct-table tbody tr:last-child td {
+    font-weight: 500 !important;
+    font-size: inherit !important;
+}
+
+/* 🎨 STANJE ZALIHA - TABLE READABILITY */
+/* ============================================ */
+
+.stanje-zaliha-table td {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 10px 8px !important;
+    color: #1e293b !important;
+}
+
+.stanje-zaliha-table th {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 12px 8px !important;
+}
+
+@media (max-width: 768px) {
+    .stanje-zaliha-table td {
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        padding: 12px 8px !important;
+    }
+
+    .stanje-zaliha-table th {
+        font-size: 10px !important;
+        padding: 10px 6px !important;
+    }
+}
+
+/* ============================================ */
+/* 🏭 PRIKAZ PO ODJELIMA - TABLE HEADERS */
+/* Poboljšana čitljivost zaglavlja tabela */
+/* ============================================ */
+
+/* Kupci table headers - Inter font, veći i čitljiviji */
+.kupci-table thead th {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    padding: 14px 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid #065f46 !important;
+    white-space: nowrap !important;
+}
+
+/* Sortiment column headers - specifično za nazive sortimenta */
+.kupci-table thead .sortiment-col {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 12px 6px !important;
+    min-width: 70px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    color: white !important;
+}
+
+/* Ukupno column header - naglašeno */
+.kupci-table thead .ukupno-col {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    background: linear-gradient(135deg, #065f46 0%, #064e3b 100%) !important;
+    color: white !important;
+    min-width: 90px !important;
+}
+
+/* Body cells - Inter font za brojeve */
+.kupci-table tbody td {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+}
+
+.kupci-table tbody .sortiment-col {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-weight: 700 !important;
+    text-align: right !important;
+}
+
+.kupci-table tbody .ukupno-col {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: #047857 !important;
+}
+
+/* Otpremač tabele - plava tema */
+#otpremac-odjeli-container .kupci-table thead th {
+    background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%) !important;
+    border-color: #1e3a8a !important;
+}
+
+#otpremac-odjeli-container .kupci-table thead .sortiment-col {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%) !important;
+}
+
+#otpremac-odjeli-container .kupci-table thead .ukupno-col {
+    background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%) !important;
+}
+
+#otpremac-odjeli-container .kupci-table tbody .ukupno-col {
+    color: #1e40af !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .kupci-table thead th {
+        font-size: 10px !important;
+        padding: 10px 4px !important;
+        letter-spacing: 0 !important;
+    }
+
+    .kupci-table thead .sortiment-col {
+        font-size: 9px !important;
+        padding: 8px 3px !important;
+        min-width: 55px !important;
+    }
+
+    .kupci-table thead .ukupno-col {
+        font-size: 11px !important;
+        min-width: 70px !important;
+    }
+
+    .kupci-table tbody td {
+        font-size: 13px !important;
+    }
+
+    .kupci-table tbody .ukupno-col {
+        font-size: 14px !important;
+    }
+}
+
+/* ============================================ */
+/* 📊 IZVJEŠTAJI - Sedmični i Mjesečni */
+/* Uniformne, profesionalne tabele */
+/* ============================================ */
+
+/* Modernizovan okvir za SVE .izvjestaj-week-table (sedmične, mjesečne,
+   primač/otpremač) — lakši rub + suptilna sjena umjesto teškog 2px tamnog
+   ruba, dosljedno sa .pro-mjesecna-table (Sječa/otprema tab). */
+.izvjestaj-week-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0;
+    font-size: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+/* Header - tamno siva, uniformna (default za sve .izvjestaj-week-table —
+   dijele je i mjesečni i primac/otpremac portal tabele, ne samo sedmični) */
+.izvjestaj-week-table thead th {
+    background: #1f2937 !important;
+    color: #ffffff !important;
+    padding: 12px 10px;
+    text-align: right;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid #374151;
+    white-space: nowrap;
+}
+
+.izvjestaj-week-table thead th:first-child,
+.izvjestaj-week-table thead th.col-sedmica {
+    text-align: center;
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    background: #111827 !important;
+    width: 100px;
+    min-width: 100px;
+    max-width: 110px;
+    white-space: nowrap;
+    border-right: 2px solid #4b5563;
+}
+
+/* Sedmični izvještaj + Sedmični po radniku (Izvještaji tab) — moderan,
+   svjetliji dizajn: bijela/svijetlo siva pozadina zaglavlja umjesto punih
+   tamnih blokova, indigo akcent za kolonu 1 (datum) i UKUPNO redove.
+   Skopirano samo na sedmične tabele preko ID prefiksa jer
+   .izvjestaj-week-table klasu dijele i mjesečna tabela i primac/otpremac
+   portal tabele, koje ostaju u default (tamnijoj) boji. */
+table[id^="izvjestaji-sedmicni"].izvjestaj-week-table thead th {
+    background: #f8fafc !important;
+    color: #475569 !important;
+    border-color: #e2e8f0;
+}
+
+table[id^="izvjestaji-sedmicni"].izvjestaj-week-table thead th:first-child,
+table[id^="izvjestaji-sedmicni"].izvjestaj-week-table thead th.col-sedmica {
+    background: #eef2ff !important;
+    color: #4338ca !important;
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
+    border-right: 3px solid #c7d2fe;
+}
+
+/* Body rows */
+.izvjestaj-week-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.izvjestaj-week-table tbody tr:nth-child(odd) {
+    background: #ffffff;
+}
+
+.izvjestaj-week-table tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+.izvjestaj-week-table tbody tr:hover {
+    background: #e0f2fe !important;
+}
+
+.izvjestaj-week-table tbody td {
+    padding: 10px;
+    text-align: right;
+    font-weight: 600;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-feature-settings: 'tnum' 1;
+    border: 1px solid #e5e7eb;
+    color: #1f2937;
+}
+
+.izvjestaj-week-table tbody td:first-child {
+    text-align: left;
+    vertical-align: middle;
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: inherit;
+    font-weight: 600;
+    color: #1f2937;
+    border-right: 2px solid #d1d5db;
+}
+
+.izvjestaj-week-table tbody tr:nth-child(odd) td:first-child {
+    background: #ffffff;
+}
+
+.izvjestaj-week-table tbody tr:nth-child(even) td:first-child {
+    background: #f9fafb;
+}
+
+.izvjestaj-week-table tbody tr:hover td:first-child {
+    background: #e0f2fe !important;
+}
+
+/* ---- Datum sedmice ćelija (rowspan) — svijetlo indigo, moderan card-akcent
+   umjesto punog tamnog bloka; ista paleta kao zaglavlje i UKUPNO red ---- */
+.izvjestaj-week-table tbody td.week-label-cell {
+    background: #eef2ff !important;
+    color: #3730a3 !important;
+    text-align: center;
+    vertical-align: middle;
+    padding: 10px 6px;
+    border-right: 3px solid #c7d2fe;
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
+    overflow: hidden;
+    position: sticky;
+    left: 0;
+    z-index: 12;
+}
+
+.izvjestaj-week-table tbody td.week-label-cell .week-date {
+    display: block;
+    font-size: 14px;
+    font-weight: 800;
+    color: #3730a3;
+    line-height: 1.4;
+    letter-spacing: 0.2px;
+}
+
+/* ---- Separator između sedmica — jači, vidljiviji rub (indigo, ista
+   porodica boja kao ostatak dizajna, tanji od UKUPNO MJESEC ruba
+   ispod radi zadržane hijerarhije) ---- */
+.izvjestaj-week-table tbody tr.week-separator td {
+    border-top: 3px solid #a5b4fc;
+}
+
+/* ---- UKUPNO SEDMICA red - plava, pojačana (bila #eff6ff, sad #bfdbfe) ---- */
+.izvjestaj-week-table tbody tr.week-totals-row {
+    background: #bfdbfe !important;
+}
+
+.izvjestaj-week-table tbody tr.week-totals-row td {
+    color: #1e3a8a !important;
+    font-weight: 800 !important;
+    font-size: 13px;
+    padding: 10px 10px;
+    border-color: #93c5fd;
+}
+
+/* ---- Detail redovi (odjeli) ---- */
+.izvjestaj-week-table tbody tr.week-detail-row {
+    background: #ffffff;
+}
+
+.izvjestaj-week-table tbody tr.week-detail-row:nth-child(even) {
+    background: #f8fafc;
+}
+
+.izvjestaj-week-table tbody tr.week-detail-row:hover {
+    background: #e0f2fe !important;
+}
+
+.izvjestaj-week-table tbody tr.week-detail-row:hover td:first-child {
+    background: #e0f2fe !important;
+}
+
+.izvjestaj-week-table tbody tr.week-detail-row td {
+    font-weight: 500;
+    font-size: 13px;
+    padding: 7px 10px;
+    color: #374151;
+}
+
+.izvjestaj-week-table tbody tr.week-detail-row td:first-child {
+    background: #ffffff;
+    font-weight: 600;
+    color: #1f2937;
+    padding-left: 12px;
+    font-size: 12.5px;
+}
+
+.izvjestaj-week-table tbody tr.week-detail-row:nth-child(even) td:first-child {
+    background: #f8fafc;
+}
+
+/* ---- GRAND TOTAL (UKUPNO MJESEC) — najjači akcent u tabeli, pojačan
+   (bio #e0e7ff, sad #a5b4fc; label ćelija #c7d2fe → #4f46e5 s bijelim
+   tekstom) — i dalje svjetliji, moderniji dizajn, ne pun crni blok. ---- */
+.izvjestaj-week-table tbody tr.grand-totals-row {
+    background: #a5b4fc !important;
+    border-top: 2px solid #6366f1;
+}
+
+.izvjestaj-week-table tbody tr.grand-totals-row td {
+    color: #312e81 !important;
+    font-weight: 800 !important;
+    font-size: 14px;
+    padding: 14px 10px;
+    border-color: #818cf8;
+}
+
+.izvjestaj-week-table tbody tr.grand-totals-row td:first-child {
+    background: #4f46e5 !important;
+    color: #ffffff !important;
+    text-align: left;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+}
+
+/* Legacy totals-row support */
+.izvjestaj-week-table tbody tr.totals-row {
+    background: #059669 !important;
+    border-top: 3px solid #047857;
+}
+
+.izvjestaj-week-table tbody tr.totals-row td {
+    color: #000000 !important;
+    text-shadow:
+        -1px -1px 0 #fff, 1px -1px 0 #fff,
+        -1px  1px 0 #fff, 1px  1px 0 #fff,
+        0 0 3px #fff !important;
+    font-weight: 800 !important;
+    font-size: 14px;
+    padding: 14px 10px;
+    border-color: #047857;
+}
+
+.izvjestaj-week-table tbody tr.totals-row td:first-child {
+    background: #047857 !important;
+    color: #000000 !important;
+    text-shadow:
+        -1px -1px 0 #fff, 1px -1px 0 #fff,
+        -1px  1px 0 #fff, 1px  1px 0 #fff,
+        0 0 3px #fff !important;
+}
+
+.izvjestaj-week-table tfoot tr {
+    background: #059669 !important;
+}
+
+.izvjestaj-week-table tfoot td {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    padding: 14px 10px;
+    text-align: right;
+}
+
+.izvjestaj-week-table tfoot td:first-child {
+    background: #047857 !important;
+    text-align: left;
+}
+
+/* ---- Sortiment kolone — grupni akcent + hijerarhija (modernizovano) ----
+   Princip: TRUPCI Č/TRUPCI L (is-subtotal) i Σ ČETINARI/LIŠĆARI (is-total)
+   moraju se razaznati od običnih sortimenata iz iste grupe, ne samo od
+   suprotne grupe — zato tri stepena jačine unutar iste boje (četinari =
+   zelena, lišćari = žuto-braon), umjesto ravnog "svaka kolona ista".
+   UKUPNO Č+L/SVEUKUPNO ostaje najjači akcent u redu (indigo/plava).
+   Klase dodjeljuje sortimentColClass (js/utils.js), dijeljeno sa
+   .pro-mjesecna-table (Sječa/otprema tab) radi vizuelne dosljednosti. */
+.izvjestaj-week-table thead th.col-cetinari {
+    background: #065f46 !important;
+}
+.izvjestaj-week-table thead th.col-cetinari.is-subtotal,
+.izvjestaj-week-table thead th.col-cetinari.is-total {
+    background: #064e3b !important;
+    border-bottom: 3px solid #34d399 !important;
+}
+
+.izvjestaj-week-table thead th.col-liscari {
+    background: #92400e !important;
+}
+.izvjestaj-week-table thead th.col-liscari.is-subtotal,
+.izvjestaj-week-table thead th.col-liscari.is-total {
+    background: #78350f !important;
+    border-bottom: 3px solid #fbbf24 !important;
+}
+
+.izvjestaj-week-table thead th.col-sveukupno {
+    background: #1e40af !important;
+    border-bottom: 3px solid #93c5fd !important;
+}
+
+/* Ispuna po ćeliji — namjerno isključena iz UKUPNO/UKUPNO MJESEC redova
+   (imaju sopstvenu jaku pozadinu na nivou reda; kolona bi se tu samo
+   sudarala s njom) preko :not() na sve tri varijante naziva total-reda
+   koje renderer emituje (week-totals-row/grand-totals-row/totals-row). */
+.izvjestaj-week-table tbody tr:not(.week-totals-row):not(.grand-totals-row):not(.totals-row) td.col-cetinari {
+    background: rgba(16, 185, 129, 0.07);
+}
+.izvjestaj-week-table tbody tr:not(.week-totals-row):not(.grand-totals-row):not(.totals-row) td.col-liscari {
+    background: rgba(245, 158, 11, 0.08);
+}
+.izvjestaj-week-table tbody tr:not(.week-totals-row):not(.grand-totals-row):not(.totals-row) td.col-cetinari.is-subtotal {
+    background: rgba(16, 185, 129, 0.16);
+    color: #047857 !important;
+    font-weight: 800 !important;
+}
+.izvjestaj-week-table tbody tr:not(.week-totals-row):not(.grand-totals-row):not(.totals-row) td.col-liscari.is-subtotal {
+    background: rgba(245, 158, 11, 0.18);
+    color: #b45309 !important;
+    font-weight: 800 !important;
+}
+.izvjestaj-week-table tbody tr:not(.week-totals-row):not(.grand-totals-row):not(.totals-row) td.col-cetinari.is-total {
+    background: rgba(16, 185, 129, 0.12);
+    color: #065f46 !important;
+    font-weight: 800 !important;
+}
+.izvjestaj-week-table tbody tr:not(.week-totals-row):not(.grand-totals-row):not(.totals-row) td.col-liscari.is-total {
+    background: rgba(245, 158, 11, 0.14);
+    color: #92400e !important;
+    font-weight: 800 !important;
+}
+.izvjestaj-week-table tbody tr:not(.week-totals-row):not(.grand-totals-row):not(.totals-row) td.col-sveukupno {
+    background: rgba(59, 130, 246, 0.14) !important;
+    color: #1e3a8a !important;
+    font-weight: 800 !important;
+    border-left: 2px solid #93c5fd;
+}
+
+/* Week section header */
+.izvjestaj-week-header {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 2px solid #86efac;
+    border-radius: 8px 8px 0 0;
+    padding: 16px 20px;
+    margin-bottom: 0;
+}
+
+.izvjestaj-week-header h3 {
+    margin: 0;
+    color: #166534;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.izvjestaj-week-header .week-dates {
+    color: #15803d;
+    font-size: 14px;
+    margin-top: 4px;
+}
+
+/* Week container */
+.izvjestaj-week-container {
+    margin-bottom: 32px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Empty week message */
+.izvjestaj-empty-week {
+    background: #f9fafb;
+    padding: 24px;
+    text-align: center;
+    color: #4b5563;
+    font-style: italic;
+    border: 2px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+}
+
+/* ============================================ */
+/* 🎨 PREGLED PO ODJELIMA - RADILIŠTE COLORING */
+/* Centralna paleta boja za radilišta */
+/* ============================================ */
+
+/* Radilište color palette - 10 distinct colors */
+.radiliste-1 { background-color: #dbeafe !important; } /* Light blue */
+.radiliste-2 { background-color: #dcfce7 !important; } /* Light green */
+.radiliste-3 { background-color: #fef3c7 !important; } /* Light amber */
+.radiliste-4 { background-color: #fce7f3 !important; } /* Light pink */
+.radiliste-5 { background-color: #e0e7ff !important; } /* Light indigo */
+.radiliste-6 { background-color: #ccfbf1 !important; } /* Light teal */
+.radiliste-7 { background-color: #fed7aa !important; } /* Light orange */
+.radiliste-8 { background-color: #ddd6fe !important; } /* Light violet */
+.radiliste-9 { background-color: #fbcfe8 !important; } /* Light rose */
+.radiliste-10 { background-color: #d1fae5 !important; } /* Light emerald */
+
+/* Radilište column text remains dark for readability */
+#odjeli-table-body td.radiliste-1,
+#odjeli-table-body td.radiliste-2,
+#odjeli-table-body td.radiliste-3,
+#odjeli-table-body td.radiliste-4,
+#odjeli-table-body td.radiliste-5,
+#odjeli-table-body td.radiliste-6,
+#odjeli-table-body td.radiliste-7,
+#odjeli-table-body td.radiliste-8,
+#odjeli-table-body td.radiliste-9,
+#odjeli-table-body td.radiliste-10 {
+    color: #1f2937 !important;
+    font-weight: 600 !important;
+}
+
+/* ============================================ */
+/* 📊 REALIZACIJA HEATMAP - Percentage Classes */
+/* Background colors based on percentage ranges */
+/* ============================================ */
+
+/* 0-25% - Red (critical) */
+/* 0-50% - Svijetlo plava */
+.real-0-50 {
+    background-color: #dbeafe !important;
+    color: #1e40af !important;
+    font-weight: 700 !important;
+}
+
+/* 51-75% - Svijetlo zelena */
+.real-51-75 {
+    background-color: #bbf7d0 !important;
+    color: #166534 !important;
+    font-weight: 700 !important;
+}
+
+/* 76-105% - Tamnija zelena */
+.real-76-105 {
+    background-color: #6ee7b7 !important;
+    color: #064e3b !important;
+    font-weight: 700 !important;
+}
+
+/* 106-115% - Svijetlo crvena */
+.real-106-115 {
+    background-color: #fecaca !important;
+    color: #991b1b !important;
+    font-weight: 700 !important;
+}
+
+/* 116%+ - Tamnija crvena */
+.real-over-115 {
+    background-color: #f87171 !important;
+    color: #7f1d1d !important;
+    font-weight: 800 !important;
+}
+
+/* ============================================ */
+/* 🥇 MEDALJE - Top 3 po koloni */
+/* ============================================ */
+.medal-gold {
+    background: linear-gradient(135deg, #fef9c3, #fde68a) !important;
+    color: #92400e !important;
+    font-weight: 800 !important;
+    box-shadow: inset 0 0 0 2px #fbbf24;
+}
+
+.medal-silver {
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb) !important;
+    color: #374151 !important;
+    font-weight: 700 !important;
+    box-shadow: inset 0 0 0 2px #9ca3af;
+}
+
+.medal-bronze {
+    background: linear-gradient(135deg, #fed7aa, #fdba74) !important;
+    color: #7c2d12 !important;
+    font-weight: 700 !important;
+    box-shadow: inset 0 0 0 2px #f97316;
+}
+
+/* Dark mode support for radilište colors */
+/* Dark mode support for realizacija heatmap */
+/* ============================================ */
+/* 🔄 KUPCI TABELE - SORTABLE HEADERS */
+/* Stilovi za sortiranje po kolonama */
+/* ============================================ */
+
+/* Sortable header - hover efekat */
+.sortable-header {
+    cursor: pointer !important;
+    user-select: none !important;
+    transition: background-color 0.15s ease !important;
+}
+
+.sortable-header:hover {
+    filter: brightness(1.15) !important;
+}
+
+/* Aktivna sort kolona - istaknutija */
+.sortable-header.sort-active {
+    text-decoration: underline !important;
+    text-underline-offset: 3px !important;
+}
+
+/* Sort strelice - inline u tekstu, vidljive */
+.sortable-header .sort-arrow {
+    margin-left: 4px;
+    font-size: 12px;
+}
+
+/* ===== Izvještaji (svi podtabovi) — čitljiva zaglavlja =====
+   Uzrok nečitljivosti: sedmična tabela forsira sivu boju teksta (#475569 !important) za SVA
+   zaglavlja, pa su obojene kolone (TRUPCI Č, Σ ČETINARI, LIŠĆARI, SVEUKUPNO) imale tamno-sivi
+   tekst na tamno zelenoj/smeđoj/plavoj pozadini. Ovdje se obojenim zaglavljima eksplicitno
+   daje bijeli tekst, a običnim jači kontrast. */
+#izvjestaji-content .izvjestaj-week-table thead th,
+#izvjestaji-primac-content .izvjestaj-week-table thead th,
+#izvjestaji-otpremac-content .izvjestaj-week-table thead th {
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: .3px;
+    white-space: nowrap;
+}
+#izvjestaji-content table.izvjestaj-week-table thead th:not(.col-cetinari):not(.col-liscari):not(.col-sveukupno):not(:first-child),
+#izvjestaji-primac-content table.izvjestaj-week-table thead th:not(.col-cetinari):not(.col-liscari):not(.col-sveukupno):not(:first-child),
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th:not(.col-cetinari):not(.col-liscari):not(.col-sveukupno):not(:first-child) {
+    background: #e8eef6 !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1;
+}
+#izvjestaji-content table.izvjestaj-week-table thead th.col-cetinari,
+#izvjestaji-content table.izvjestaj-week-table thead th.col-liscari,
+#izvjestaji-content table.izvjestaj-week-table thead th.col-sveukupno,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-cetinari,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-liscari,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-sveukupno,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-cetinari,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-liscari,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-sveukupno {
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+}
+#izvjestaji-content table.izvjestaj-week-table thead th.col-cetinari,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-cetinari,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-cetinari { background: #047857 !important; }
+#izvjestaji-content table.izvjestaj-week-table thead th.col-cetinari.is-subtotal,
+#izvjestaji-content table.izvjestaj-week-table thead th.col-cetinari.is-total,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-cetinari.is-subtotal,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-cetinari.is-total,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-cetinari.is-subtotal,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-cetinari.is-total { background: #064e3b !important; }
+#izvjestaji-content table.izvjestaj-week-table thead th.col-liscari,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-liscari,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-liscari { background: #b45309 !important; }
+#izvjestaji-content table.izvjestaj-week-table thead th.col-liscari.is-subtotal,
+#izvjestaji-content table.izvjestaj-week-table thead th.col-liscari.is-total,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-liscari.is-subtotal,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-liscari.is-total,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-liscari.is-subtotal,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-liscari.is-total { background: #78350f !important; }
+#izvjestaji-content table.izvjestaj-week-table thead th.col-sveukupno,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th.col-sveukupno,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th.col-sveukupno { background: #1e3a8a !important; }
+/* kolona ODJEL / SEDMICA (prva) */
+#izvjestaji-content table.izvjestaj-week-table thead th:first-child,
+#izvjestaji-primac-content table.izvjestaj-week-table thead th:first-child,
+#izvjestaji-otpremac-content table.izvjestaj-week-table thead th:first-child { color: #312e81 !important; font-weight: 800; }
+/* ostale tabele u Izvještajima (po radniku/odjelu) */
+#izvjestaji-content .kupci-table thead th { background: #1e3a5f !important; color: #fff !important; font-weight: 700; }
