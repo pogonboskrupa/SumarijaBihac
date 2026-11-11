@@ -27,7 +27,7 @@
     // ---- 2. BACKEND ----
     // URL Google Apps Script Web App-a (Deploy → New deployment → Web app).
     // Mijenja se pri svakom NOVOM deploymentu backenda.
-    var API_URL = 'https://script.google.com/macros/s/AKfycbwu77DcD1qDldeGD1XnF7NbcsDcy1Pg60w-DeegDsaOjQUwgBJKAhYy_uULWOiw-eWqAQ/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyRKErx0Gq6wSUAy3Sr6Dtu0j0PCRLygIq4oz9bexSqe99LEbXHCSrRBhwuzhaZ5MG2QA/exec';
 
     // ---- 3. GOSPODARSKE JEDINICE ----
     // Nazivi se MORAJU tačno poklapati sa property "gj" u data/odjeli.geojson,
