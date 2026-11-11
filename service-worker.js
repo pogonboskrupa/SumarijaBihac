@@ -1,6 +1,6 @@
 // ========== Service Worker - Offline Support ==========
 
-const CACHE_VERSION = 'v172';
+const CACHE_VERSION = 'v173';
 const CACHE_NAME = `sumarija-cache-${CACHE_VERSION}`;
 
 // Resursi koji se keširaju odmah pri instalaciji — aplikacija se tako otvara offline već
