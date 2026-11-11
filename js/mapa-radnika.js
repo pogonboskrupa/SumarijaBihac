@@ -2701,7 +2701,7 @@
     }
     function _gpxDoc(inner, naslov) {
         return '<?xml version="1.0" encoding="UTF-8"?>\n' +
-            '<gpx version="1.1" creator="Sumarija Bosanska Krupa" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+            '<gpx version="1.1" creator="Sumarija Bihac" xmlns="http://www.topografix.com/GPX/1/1">\n' +
             '  <metadata>\n    <name>' + _xmlEsc(naslov) + '</name>\n' +
             '    <time>' + new Date().toISOString() + '</time>\n  </metadata>\n' +
             inner + '</gpx>\n';

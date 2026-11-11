@@ -1,7 +1,7 @@
 {
-  "name": "Šumarija Bos. Krupa",
+  "name": "Šumarija Bihać",
   "short_name": "Šumarija",
-  "description": "Aplikacija za upravljanje šumarstvom - Šumarija Bosanska Krupa",
+  "description": "Aplikacija za upravljanje šumarstvom - Šumarija Bihać",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",

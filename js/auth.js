@@ -270,7 +270,7 @@
                 ];
             } else if (userType === 'operativa') {
                 tabsConfig = [
-                    { id: 'dashboard', icon: '🌲', label: 'Šumarija Krupa', active: true },
+                    { id: 'dashboard', icon: '🌲', label: 'Šumarija Bihać', active: true },
                     { id: 'kupci', icon: '📦', label: 'Kupci' },
                     { id: 'mjesecni-sortimenti', icon: '📅', label: 'Mjesečni pregled' },
                     { id: 'izvjestaji', icon: '📋', label: 'Izvještaji' }
@@ -299,7 +299,7 @@
                 ];
             } else if (userType === 'admin') {
                 tabsConfig = [
-                    { id: 'dashboard', icon: '🌲', label: 'Šumarija Krupa', active: true },
+                    { id: 'dashboard', icon: '🌲', label: 'Šumarija Bihać', active: true },
                     { id: 'kupci', icon: '🏢', label: 'Prikaz po kupcima' },
                     { id: 'stanje-zaliha', icon: '📦', label: 'Stanje Zaliha' },
                     { id: 'mjesecni-sortimenti', icon: '📅', label: 'Sječa/otprema' },
