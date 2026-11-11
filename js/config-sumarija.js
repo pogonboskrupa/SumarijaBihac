@@ -32,12 +32,18 @@
     // ---- 3. GOSPODARSKE JEDINICE ----
     // Nazivi se MORAJU tačno poklapati sa property "gj" u data/odjeli.geojson,
     // inače se sječa ne poveže sa poligonom na mapi.
-    var GJ_LIST = [];   // TODO: nazivi gospodarskih jedinica (isti kao 'gj' u data/odjeli.geojson)
+    var GJ_LIST = ['Risovac Bihać', 'Risovac Krupa', 'Osječenica Kulen Vakuf', 'Plješevica'];
     var GJ_COLOR = {
-        'Slučajni užici': '#7c3aed'
+        'Risovac Bihać': '#1d4ed8',
+        'Risovac Krupa': '#0e7490',
+        'Osječenica Kulen Vakuf': '#b45309',
+        'Plješevica': '#15803d'
     };
     var GJ_BG = {
-        'Slučajni užici': '#f5f3ff'
+        'Risovac Bihać': '#eff6ff',
+        'Risovac Krupa': '#ecfeff',
+        'Osječenica Kulen Vakuf': '#fffbeb',
+        'Plješevica': '#f0fdf4'
     };
 
     // ---- 4. GODINA I VERZIJA PODLOGE ----
