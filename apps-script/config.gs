@@ -12,8 +12,8 @@ const ODJELI_FOLDER_ID = '1ofGFcRe5lWPLGFXkEEl6rwONc3P0FL2B';                   
 const IMAGES_FOLDER_ID = 'POSTAVI_ID_OVDJE';                      // Folder za temp slike (auto-brisanje 5 dana)
 
 // Admin credentials
-const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'admin';
+const ADMIN_USERNAME = 'ADMINBIHAC';
+const ADMIN_PASSWORD = '8899';
 
 // Cache TTL (Time To Live) - vrijeme zadržavanja podataka u kešu
 const CACHE_TTL = 180; // 3 minute cache (180 seconds)
