@@ -449,21 +449,21 @@ function syncIndexSheet() {
         // Pročitaj PRIMKA sheet
         const primkaSheet = ss.getSheetByName('PRIMKA');
 
-        // Čitaj RADILIŠTE (W2) i IZVOĐAČ (W3) iz PRIMKA sheet-a
+        // Čitaj RADILIŠTE (D4) i IZVOĐAČ (D5) iz PRIMKA sheet-a
         let radiliste = '';
         let izvodjac = '';
         if (primkaSheet) {
           try {
-            const w2Value = primkaSheet.getRange('W2').getValue();
+            const w2Value = primkaSheet.getRange('D4').getValue();
             if (w2Value && String(w2Value).trim() !== '') {
               radiliste = String(w2Value).trim();
             }
-            const w3Value = primkaSheet.getRange('W3').getValue();
+            const w3Value = primkaSheet.getRange('D5').getValue();
             if (w3Value && String(w3Value).trim() !== '') {
               izvodjac = String(w3Value).trim();
             }
           } catch (e) {
-            Logger.log(`  Greška pri čitanju W2/W3: ${e.toString()}`);
+            Logger.log(`  Greška pri čitanju D4/D5: ${e.toString()}`);
           }
         }
 
@@ -733,24 +733,24 @@ function syncStanjeOdjela() {
           continue;
         }
 
-        // Čitaj naziv radilišta iz PRIMKA sheet, W2 (red 2, kolona 23)
-        let radilisteNaziv = fileName; // Fallback ako W2 ne postoji
-        let izvodjacNaziv = ''; // W3 - izvođač
+        // Čitaj naziv radilišta iz PRIMKA sheet, D4 (red 4, kolona 4)
+        let radilisteNaziv = fileName; // Fallback ako D4 ne postoji
+        let izvodjacNaziv = ''; // D5 - izvođač
         if (primkaSheet) {
           try {
-            const w2Cell = primkaSheet.getRange(2, 23); // Red 2, kolona W (23)
+            const w2Cell = primkaSheet.getRange(4, 4); // Red 4, kolona D (4)
             const w2Value = w2Cell.getValue();
             if (w2Value && w2Value.toString().trim() !== '') {
               radilisteNaziv = w2Value.toString().trim();
             }
 
-            const w3Cell = primkaSheet.getRange(3, 23); // Red 3, kolona W (23)
+            const w3Cell = primkaSheet.getRange(5, 4); // Red 5, kolona D (4)
             const w3Value = w3Cell.getValue();
             if (w3Value && w3Value.toString().trim() !== '') {
               izvodjacNaziv = w3Value.toString().trim();
             }
           } catch (e) {
-            Logger.log('Greška pri čitanju W2/W3: ' + e.toString());
+            Logger.log('Greška pri čitanju D4/D5: ' + e.toString());
           }
         }
 
@@ -1056,7 +1056,7 @@ function IDX_readOneFileBoth_(fileId) {
 
   const result = { primka: [], otprema: [] };
 
-  // Čitaj RADILIŠTE (W2), IZVOĐAČ (W3), POSLOVOĐA (W4) iz PRIMKA sheet-a
+  // Čitaj RADILIŠTE (D4), IZVOĐAČ (D5), POSLOVOĐA (D6) iz PRIMKA sheet-a
   let radiliste = '';
   let izvodjac = '';
   let poslovodja = '';
@@ -1064,11 +1064,11 @@ function IDX_readOneFileBoth_(fileId) {
   const primkaSheet = ss.getSheetByName('PRIMKA');
   if (primkaSheet) {
     try {
-      radiliste = String(primkaSheet.getRange('W2').getValue() || '').trim();
-      izvodjac = String(primkaSheet.getRange('W3').getValue() || '').trim();
-      poslovodja = String(primkaSheet.getRange('W4').getValue() || '').trim();
+      radiliste = String(primkaSheet.getRange('D4').getValue() || '').trim();
+      izvodjac = String(primkaSheet.getRange('D5').getValue() || '').trim();
+      poslovodja = String(primkaSheet.getRange('D6').getValue() || '').trim();
     } catch (e) {
-      Logger.log(`Error reading W2/W3/W4 for ${odjelNaziv}: ${e}`);
+      Logger.log(`Error reading D4/D5/D6 for ${odjelNaziv}: ${e}`);
     }
 
     // Čitaj PRIMKA podatke
