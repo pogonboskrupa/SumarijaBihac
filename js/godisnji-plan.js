@@ -1,6 +1,6 @@
 // ========================================
 // js/godisnji-plan.js
-// Godišnji plan sječe 2026 — Pogon Bihać
+// Godišnji plan sječe 2026 — Šumarija Bihać
 // ========================================
 (function () {
   'use strict';
@@ -1193,7 +1193,7 @@
     <div style="font-family:Arial,sans-serif;color:#1f2937;">
       <div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #1e293b;padding-bottom:16px;">
         <h1 style="font-size:20px;margin:0 0 6px;">GODIŠNJI PLAN SJEČE ${PLAN_YEAR}</h1>
-        <h2 style="font-size:15px;font-weight:400;margin:0 0 6px;">Pogon Bihać</h2>
+        <h2 style="font-size:15px;font-weight:400;margin:0 0 6px;">Šumarija Bihać</h2>
         <span style="font-size:12px;color:#4b5563;">Datum štampe: ${new Date().toLocaleDateString('bs-BA')}</span>
       </div>`;
 
