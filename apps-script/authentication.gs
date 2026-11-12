@@ -7,6 +7,9 @@
 
 // Helper function to verify user credentials
 function verifyUser(username, password) {
+  if (!username || !password) {
+    return null;
+  }
   const ss = SpreadsheetApp.openById(KORISNICI_SPREADSHEET_ID);
   const usersSheet = ss.getSheetByName('Korisnici');
 
@@ -125,6 +128,9 @@ function oboji_prijave_(sheet, n) {
 // zabiljezi=true samo za pravu prijavu (path=login) — handleLogin se interno poziva i
 // iz svakog drugog handlera radi autentikacije, i tada se ništa ne upisuje
 function handleLogin(username, password, zabiljezi) {
+  if (!username || !password) {
+    return createJsonResponse({ error: 'Unesite korisničko ime i lozinku' }, false);
+  }
   const ss = SpreadsheetApp.openById(KORISNICI_SPREADSHEET_ID);
   const usersSheet = ss.getSheetByName('Korisnici'); // Sheet name: "Korisnici"
 

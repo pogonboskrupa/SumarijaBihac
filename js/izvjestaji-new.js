@@ -926,7 +926,7 @@ function printIzvjestaj(tip) {
 <div class="print-header">
   <div class="print-header-left">
     <div class="company-name">ŠPD "Unsko-Sanske Šume" d.o.o.</div>
-    <div class="company-sub">Šumarija Bosanska Krupa</div>
+    <div class="company-sub">Šumarija Bihać</div>
   </div>
   <div class="print-header-right">
     <div class="report-title">${tipLabel}</div>
@@ -942,7 +942,7 @@ ${primkaHtml}
 ${otpremaHtml}
 
 <div class="print-footer">
-  <span>ŠPD "Unsko-Sanske Šume" d.o.o. — Šumarija Bosanska Krupa</span>
+  <span>ŠPD "Unsko-Sanske Šume" d.o.o. — Šumarija Bihać</span>
   <span>Štampano: ${datumStampe}</span>
 </div>
 
@@ -1369,7 +1369,7 @@ function printIzvjestajPoOdjelima(prefix = 'izvjestaji-po-odjelima') {
 <div class="no-print"><button class="btn-print" onclick="window.print()">🖨️ Štampaj</button><button class="btn-close" onclick="window.close()">✕ Zatvori</button></div>
 
 <div class="print-header">
-  <div><div class="company-name">ŠPD "Unsko-Sanske Šume" d.o.o.</div><div class="company-sub">Šumarija Bosanska Krupa</div></div>
+  <div><div class="company-name">ŠPD "Unsko-Sanske Šume" d.o.o.</div><div class="company-sub">Šumarija Bihać</div></div>
   <div>
     <div class="report-title">Izvještaj po odjelima${radilisteNaziv ? ' — ' + radilisteNaziv : ''}</div>
     <div class="report-period">Period: ${monthName}${radilisteNaziv ? ' · Radilište: ' + radilisteNaziv : ''} · ${brojOdjela} odjela</div>
@@ -1380,7 +1380,7 @@ function printIzvjestajPoOdjelima(prefix = 'izvjestaji-po-odjelima') {
 ${content.innerHTML}
 
 <div class="print-footer">
-  <span>ŠPD "Unsko-Sanske Šume" d.o.o. — Šumarija Bosanska Krupa</span>
+  <span>ŠPD "Unsko-Sanske Šume" d.o.o. — Šumarija Bihać</span>
   <div class="potpis"><div class="potpis-linija"></div>Poslovođa / Šumarski tehničar</div>
   <span>Štampano: ${datumStampe}</span>
 </div>

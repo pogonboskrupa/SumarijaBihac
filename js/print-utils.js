@@ -718,7 +718,7 @@ td.col-sveukupno, th.col-sveukupno { background: #dcfce7; }
 <div class="doc-header">
     <div class="doc-header-left">
         <div class="company-name">ŠPD &ldquo;Unsko-Sanske Šume&rdquo; d.o.o.</div>
-        <div class="company-sub">Šumarija Bosanska Krupa</div>
+        <div class="company-sub">Šumarija Bihać</div>
     </div>
     <div class="doc-header-right">
         <div class="doc-title">${tabLabel}</div>
@@ -731,7 +731,7 @@ td.col-sveukupno, th.col-sveukupno { background: #dcfce7; }
 ${sectionsHtml}
 
 <div class="doc-footer">
-    <span>ŠPD &ldquo;Unsko-Sanske Šume&rdquo; d.o.o. &mdash; Šumarija Bosanska Krupa</span>
+    <span>ŠPD &ldquo;Unsko-Sanske Šume&rdquo; d.o.o. &mdash; Šumarija Bihać</span>
     <span>Štampano: ${datumStampe} u ${vrijemeStampe}</span>
 </div>
 

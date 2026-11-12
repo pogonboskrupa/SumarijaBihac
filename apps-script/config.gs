@@ -5,15 +5,15 @@
 // VAŽNO: Ažuriraj Spreadsheet ID-ove prema svom Google Drive okruženju
 
 // ⚠️ VAŽNO: Postavi svoje Spreadsheet ID-ove ovdje
-const KORISNICI_SPREADSHEET_ID = 'POSTAVI_ID_OVDJE'; // SUMARIJA_KORISNICI
+const KORISNICI_SPREADSHEET_ID = '1Xf3t3ne7hD4SaIHh336JZju9f_XKbYdmTAaxkNW8Dm0'; // SUMARIJA_KORISNICI
 const INDEX_SPREADSHEET_ID = 'POSTAVI_ID_OVDJE';     // SUMARIJA_INDEX (zastarjelo)
-const BAZA_PODATAKA_ID = 'POSTAVI_ID_OVDJE';         // BAZA PODATAKA - glavni izvor
-const ODJELI_FOLDER_ID = 'POSTAVI_ID_OVDJE';                      // Folder sa svim odjelima
+const BAZA_PODATAKA_ID = '11ICsdNiePrfDqTKewvNWLK21edxlTkENPz24Jbz-8So';         // BAZA PODATAKA - glavni izvor
+const ODJELI_FOLDER_ID = '1ofGFcRe5lWPLGFXkEEl6rwONc3P0FL2B';                      // Folder sa svim odjelima
 const IMAGES_FOLDER_ID = 'POSTAVI_ID_OVDJE';                      // Folder za temp slike (auto-brisanje 5 dana)
 
 // Admin credentials
-const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'admin';
+const ADMIN_USERNAME = 'ADMINBIHAC';
+const ADMIN_PASSWORD = '8899';
 
 // Cache TTL (Time To Live) - vrijeme zadržavanja podataka u kešu
 const CACHE_TTL = 180; // 3 minute cache (180 seconds)

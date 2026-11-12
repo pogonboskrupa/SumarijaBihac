@@ -26,8 +26,8 @@
   const CACHE_SJECA = 'cache_primke_sjeca';
   const CACHE_OTPR  = 'cache_otpreme_tab';
 
-  // Lokacija Šumarije Bosanska Krupa — Trg Alije Izetbegovića 1
-  const SUMARIJA_LATLNG = _CFG.LOKACIJA || [44.883425, 16.154427];
+  // Lokacija kancelarije Šumarije Bihać (config-sumarija.js)
+  const SUMARIJA_LATLNG = _CFG.LOKACIJA || [44.8167, 15.8700];
   const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
 
   let _map          = null;
@@ -1319,7 +1319,7 @@
           className:'', iconAnchor:[0,0]
         })
       }).addTo(_map);
-      _sumarijaMark.bindTooltip('Šumarija Bosanska Krupa — Trg Alije Izetbegovića 1');
+      _sumarijaMark.bindTooltip('Šumarija Bihać');
     }
   }
 
