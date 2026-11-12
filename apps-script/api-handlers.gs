@@ -4293,10 +4293,11 @@ function handleUploadImage(username, password, type, imageData) {
     try {
       folder = DriveApp.getFolderById(IMAGES_FOLDER_ID);
     } catch (e) {
-      // Folder doesn't exist, create it in root
-      folder = DriveApp.createFolder('Sumarija_Temp_Images');
-      Logger.log('Created new folder: ' + folder.getId());
-      // Note: Update IMAGES_FOLDER_ID with the new folder ID
+      // IMAGES_FOLDER_ID nije postavljen/ispravan — koristi postojeći folder istog
+      // naziva (inače bi svaki upload pravio novi folder), a tek ako ga nema, kreiraj
+      const existing = DriveApp.getFoldersByName('Sumarija_Temp_Images');
+      folder = existing.hasNext() ? existing.next() : DriveApp.createFolder('Sumarija_Temp_Images');
+      Logger.log('Koristi se folder slika: ' + folder.getId() + ' — upiši ga u IMAGES_FOLDER_ID (config.gs)');
     }
 
     // Create file

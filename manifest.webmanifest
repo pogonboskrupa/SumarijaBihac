@@ -2,13 +2,13 @@
   "name": "Šumarija Bihać",
   "short_name": "Šumarija",
   "description": "Aplikacija za upravljanje šumarstvom - Šumarija Bihać",
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "start_url": "./?source=pwa",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0f172a",
   "theme_color": "#166534",
-  "id": "/",
+  "id": "./",
   "icons": [
     {
       "src": "icon-192.png",
